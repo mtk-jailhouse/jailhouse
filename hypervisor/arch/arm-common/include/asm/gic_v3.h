@@ -21,6 +21,9 @@
 #define GICDv3_PIDR2		0xffe8
 #define GICDv3_PIDR4		0xffd0
 
+#define GIC_V3_REDIST_SIZE	0x20000
+#define GIC_V4_REDIST_SIZE	0x40000
+
 #define GICR_CTLR		0x0000
 #define GICR_IIDR		0x0004
 #define GICR_TYPER		0x0008

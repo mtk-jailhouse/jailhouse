@@ -164,7 +164,8 @@ if sysconfig.arch in ('arm', 'arm64'):
     elif sysconfig.arm_gic_version == 3:
         arch_resources.append(ResourceRegion(sysconfig.arm_gicd_base, 0x10000,
                                              "GICD"))
-        arch_resources.append(ResourceRegion(sysconfig.arm_gicr_base, 0x20000,
+        arch_resources.append(ResourceRegion(sysconfig.arm_gicr_base,
+                                             sysconfig.arm_gicr_size or 0x20000,
                                              "GICR"))
     else:
         raise RuntimeError("Unknown GIC version: %d" %

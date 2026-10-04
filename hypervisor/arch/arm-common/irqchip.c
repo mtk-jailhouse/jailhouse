@@ -21,6 +21,7 @@
 #include <jailhouse/unit.h>
 #include <asm/control.h>
 #include <asm/gic.h>
+#include <asm/gic_v3.h>
 #include <asm/irqchip.h>
 #include <asm/smccc.h>
 
@@ -554,10 +555,18 @@ void irqchip_config_commit(struct cell *cell_added_removed)
 static unsigned int irqchip_mmio_count_regions(struct cell *cell)
 {
 	unsigned int regions = 1; /* GICD */
+	unsigned int slots;
 
-	if (system_config->platform_info.arm.gic_version >= 3)
+	if (system_config->platform_info.arm.gic_version >= 3) {
 		/* 1 GICR per CPU */
 		regions += hypervisor_header.online_cpus;
+
+		/* at most 1 per remaining GICR slot, see gicv3_cell_init */
+		slots = system_config->platform_info.arm.gicr_size /
+			GIC_V3_REDIST_SIZE;
+		if (slots > hypervisor_header.online_cpus)
+			regions += slots - hypervisor_header.online_cpus;
+	}
 
 	return regions;
 }

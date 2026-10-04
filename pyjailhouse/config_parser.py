@@ -19,7 +19,7 @@ import struct
 from .extendedenum import ExtendedEnum
 
 # Keep the whole file in sync with include/jailhouse/cell-config.h.
-_CONFIG_REVISION = 14
+_CONFIG_REVISION = 15
 JAILHOUSE_X86 = 0
 JAILHOUSE_ARM = 1
 JAILHOUSE_ARM64 = 2
@@ -255,8 +255,8 @@ class SystemConfig:
     _CONSOLE_FORMAT = '32x'
     _PCI_FORMAT = '=QBBH'
     _NUM_IOMMUS = 8
-    _ARCH_ARM_FORMAT = '=BB2xQQQQQ'
-    _ARCH_X86_FORMAT = '=HBxIII28x'
+    _ARCH_ARM_FORMAT = '=BB2xQQQQQI'
+    _ARCH_X86_FORMAT = '=HBxIII32x'
 
     def __init__(self, data):
         self.data = data
@@ -297,7 +297,8 @@ class SystemConfig:
                  self.arm_gicc_base,
                  self.arm_gich_base,
                  self.arm_gicv_base,
-                 self.arm_gicr_base) = \
+                 self.arm_gicr_base,
+                 self.arm_gicr_size) = \
                      struct.unpack_from(self._ARCH_ARM_FORMAT, self.data[offs:])
             elif self.arch == 'x86':
                 (self.x86_pm_timer_address,

@@ -59,7 +59,7 @@
  * Incremented on any layout or semantic change of system or cell config.
  * Also update formats and HEADER_REVISION in pyjailhouse/config_parser.py.
  */
-#define JAILHOUSE_CONFIG_REVISION	14
+#define JAILHOUSE_CONFIG_REVISION	15
 
 #define JAILHOUSE_CELL_NAME_MAXLEN	31
 
@@ -363,6 +363,8 @@ struct jailhouse_system {
 				u64 gich_base;
 				u64 gicv_base;
 				u64 gicr_base;
+				/* 0: one redistributor per CPU, without gaps */
+				u32 gicr_size;
 			} __attribute__((packed)) arm;
 		} __attribute__((packed));
 	} __attribute__((packed)) platform_info;
