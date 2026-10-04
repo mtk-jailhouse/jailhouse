@@ -278,7 +278,8 @@ void irqchip_inject_pending(void)
 		irq_id = pending->irqs[pending->head];
 		sender = pending->sender[pending->head];
 
-		if (irqchip.inject_irq(irq_id, sender) == -EBUSY) {
+		if (irq_id != PENDING_IRQ_CLEARED &&
+		    irqchip.inject_irq(irq_id, sender) == -EBUSY) {
 			/*
 			 * The list registers are full, trigger maintenance
 			 * interrupt and leave.
@@ -300,6 +301,32 @@ void irqchip_inject_pending(void)
 	 * interrupt.
 	 */
 	irqchip.enable_maint_irq(false);
+}
+
+/*
+ * Returns the SGIs queued for this CPU, and drops those in clear from the
+ * queue.
+ */
+u32 irqchip_queued_sgis(u32 clear)
+{
+	struct pending_irqs *pending = &this_cpu_public()->pending_irqs;
+	unsigned int n;
+	u32 sgis = 0;
+	u16 irq_id;
+
+	spin_lock(&pending->lock);
+	for (n = pending->head; n != pending->tail;
+	     n = (n + 1) % MAX_PENDING_IRQS) {
+		irq_id = pending->irqs[n];
+		if (!is_sgi(irq_id))
+			continue;
+		sgis |= 1 << irq_id;
+		if (clear & (1 << irq_id))
+			pending->irqs[n] = PENDING_IRQ_CLEARED;
+	}
+	spin_unlock(&pending->lock);
+
+	return sgis;
 }
 
 void irqchip_trigger_external_irq(u16 irq_id)
@@ -400,7 +427,8 @@ void irqchip_cpu_shutdown(struct public_per_cpu *cpu_public)
 	while (pending->head != pending->tail) {
 		irq_id = pending->irqs[pending->head];
 
-		irqchip.inject_phys_irq(irq_id);
+		if (irq_id != PENDING_IRQ_CLEARED)
+			irqchip.inject_phys_irq(irq_id);
 
 		/*
 		 * Ensure that the entry was read before updating the head

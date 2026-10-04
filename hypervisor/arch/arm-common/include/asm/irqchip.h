@@ -67,6 +67,9 @@ struct irqchip {
 	unsigned long gicd_size;
 };
 
+/* an entry of struct pending_irqs cleared before its injection */
+#define PENDING_IRQ_CLEARED	0xffff
+
 struct pending_irqs {
 	/* synchronizes parallel insertions of SGIs into the pending ring */
 	spinlock_t lock;
@@ -96,6 +99,7 @@ bool irqchip_has_pending_irqs(void);
 
 void irqchip_inject_pending(void);
 void irqchip_set_pending(struct public_per_cpu *cpu_public, u16 irq_id);
+u32 irqchip_queued_sgis(u32 clear);
 
 void irqchip_trigger_external_irq(u16 irq_id);
 
