@@ -17,6 +17,7 @@
 #include <asm/traps.h>
 #include <asm/smc.h>
 #include <asm/smccc.h>
+#include <asm/spinlock.h>
 
 bool sdei_available;
 
@@ -95,7 +96,42 @@ static void trust_dispatch(struct trap_context *ctx)
 	ctx->regs[1] = x1;
 	ctx->regs[2] = x2;
 	ctx->regs[3] = x3;
+#else
+	ctx->regs[0] = ARM_SMCCC_NOT_SUPPORTED;
 #endif
+}
+
+static bool sip_call_permitted(u32 function_id)
+{
+	const struct jailhouse_cell_desc *config = this_cell()->config;
+	const __u32 *smc_ids = jailhouse_cell_smc_ids(config);
+	unsigned int n;
+
+	for (n = 0; n < config->num_smc_ids; n++)
+		if (smc_ids[n] == function_id)
+			return true;
+	return false;
+}
+
+/* reports each denied SiP call once per cell, up to a limit */
+static void report_denied_sip_call(u32 function_id)
+{
+	static spinlock_t lock;
+	struct arch_cell *arch = &this_cell()->arch;
+	unsigned int n;
+
+	spin_lock(&lock);
+	for (n = 0; n < arch->num_denied_sip_ids; n++)
+		if (arch->denied_sip_ids[n] == function_id)
+			break;
+	if (n == arch->num_denied_sip_ids &&
+	    n < ARRAY_SIZE(arch->denied_sip_ids)) {
+		arch->denied_sip_ids[n] = function_id;
+		arch->num_denied_sip_ids++;
+		printk("Denied SiP call 0x%08x of cell \"%s\"\n", function_id,
+		       this_cell()->config->name);
+	}
+	spin_unlock(&lock);
 }
 
 static inline long handle_arch_features(u32 id)
@@ -155,7 +191,12 @@ enum trap_return handle_smc(struct trap_context *ctx)
 
 	case ARM_SMCCC_OWNER_SIP:
 		stats[JAILHOUSE_CPU_STAT_VMEXITS_SMCCC]++;
-		regs[0] = ARM_SMCCC_NOT_SUPPORTED;
+		if (sip_call_permitted(regs[0])) {
+			trust_dispatch(ctx);
+		} else {
+			report_denied_sip_call(regs[0]);
+			regs[0] = ARM_SMCCC_NOT_SUPPORTED;
+		}
 		break;
 
 	case ARM_SMCCC_OWNER_STANDARD:
@@ -164,7 +205,12 @@ enum trap_return handle_smc(struct trap_context *ctx)
 
 	case ARM_SMCCC_OWNER_TRUSTED_APP ... ARM_SMCCC_OWNER_TRUSTED_APP_END:
 	case ARM_SMCCC_OWNER_TRUSTED_OS ... ARM_SMCCC_OWNER_TRUSTED_OS_END:
-		trust_dispatch(ctx);
+		stats[JAILHOUSE_CPU_STAT_VMEXITS_SMCCC]++;
+		/* The secure world does not separate cells, keep it for root. */
+		if (this_cell() == &root_cell)
+			trust_dispatch(ctx);
+		else
+			regs[0] = ARM_SMCCC_NOT_SUPPORTED;
 		break;
 
 	default:
