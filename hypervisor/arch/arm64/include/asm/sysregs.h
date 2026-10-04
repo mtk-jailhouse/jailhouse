@@ -167,6 +167,10 @@
 
 #define FPEXC_EL2_EN_BIT	(1UL << 30)
 
+#define ID_AA64PFR0_EL1_SHIFT	4
+#define ID_AA64PFR0_EL1_MASK	0xf
+#define ID_AA64PFR0_EL1_AARCH32	2
+
 #ifndef __ASSEMBLY__
 
 #include <jailhouse/string.h>
