@@ -26,6 +26,10 @@ struct arch_cell {
 		u8 ent_count;
 		struct pvu_tlb_entry *entries;
 	} iommu_pvu; /**< ARM PVU specific fields. */
+
+	/* denied SiP calls reported so far */
+	u32 denied_sip_ids[8];
+	unsigned int num_denied_sip_ids;
 };
 
 #endif /* !_JAILHOUSE_ASM_CELL_H */

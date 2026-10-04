@@ -107,6 +107,7 @@ struct jailhouse_cell_desc {
 	__u32 num_pci_devices;
 	__u32 num_pci_caps;
 	__u32 num_stream_ids;
+	__u32 num_smc_ids;
 
 	__u32 vpci_irq_base;
 
@@ -382,7 +383,8 @@ jailhouse_cell_config_size(struct jailhouse_cell_desc *cell)
 		cell->num_pio_regions * sizeof(struct jailhouse_pio) +
 		cell->num_pci_devices * sizeof(struct jailhouse_pci_device) +
 		cell->num_pci_caps * sizeof(struct jailhouse_pci_capability) +
-		cell->num_stream_ids * sizeof(__u32);
+		cell->num_stream_ids * sizeof(__u32) +
+		cell->num_smc_ids * sizeof(__u32);
 }
 
 static inline __u32
@@ -452,6 +454,13 @@ jailhouse_cell_stream_ids(const struct jailhouse_cell_desc *cell)
 	return (const union jailhouse_stream_id *)
 		((void *)jailhouse_cell_pci_caps(cell) +
 		cell->num_pci_caps * sizeof(struct jailhouse_pci_capability));
+}
+
+static inline const __u32 *
+jailhouse_cell_smc_ids(const struct jailhouse_cell_desc *cell)
+{
+	return (const __u32 *)((void *)jailhouse_cell_stream_ids(cell) +
+		cell->num_stream_ids * sizeof(union jailhouse_stream_id));
 }
 
 #endif /* !_JAILHOUSE_CELL_CONFIG_H */
