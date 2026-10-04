@@ -30,6 +30,8 @@
 	     (counter) < (config)->num_irqchips;			\
 	     (chip)++, (counter)++)
 
+#define MAX_SHARED_IRQS		4
+
 spinlock_t dist_lock;
 
 void *gicd_base;
@@ -41,6 +43,14 @@ void *gicd_base;
 static bool irqchip_is_init;
 
 static struct irqchip irqchip;
+
+static struct {
+	u16 irq_id;
+	struct cell *(*get_target)(u16 irq_id);
+	/* the cell that got the last occurrence */
+	struct cell *cell;
+} shared_irqs[MAX_SHARED_IRQS];
+static unsigned int num_shared_irqs;
 
 /*
  * Most of the GIC distributor writes only reconfigure the IRQs corresponding to
@@ -176,6 +186,29 @@ static enum mmio_result gic_handle_dist_access(void *arg,
 	return ret;
 }
 
+static bool irqchip_handle_phys_irq(u32 irq_id, unsigned int count_event)
+{
+	struct cell *cell = NULL;
+	unsigned int n;
+
+	for (n = 0; n < num_shared_irqs; n++)
+		if (shared_irqs[n].irq_id == irq_id) {
+			cell = shared_irqs[n].get_target(irq_id);
+			if (!cell)
+				cell = this_cell();
+			shared_irqs[n].cell = cell;
+			break;
+		}
+
+	if (!cell || cell == this_cell())
+		return arch_handle_phys_irq(irq_id, count_event);
+
+	this_cpu_public()->stats[JAILHOUSE_CPU_STAT_VMEXITS_VIRQ] += count_event;
+	irqchip_set_pending(public_per_cpu(first_cpu(cell->cpu_set)), irq_id);
+
+	return false;
+}
+
 void irqchip_handle_irq(void)
 {
 	unsigned int count_event = 1;
@@ -195,7 +228,7 @@ void irqchip_handle_irq(void)
 			handled = true;
 		} else {
 			isb();
-			handled = arch_handle_phys_irq(irq_id, count_event);
+			handled = irqchip_handle_phys_irq(irq_id, count_event);
 		}
 		count_event = 0;
 
@@ -476,12 +509,18 @@ static int irqchip_cell_init(struct cell *cell)
 	if (cell == &root_cell)
 		return 0;
 
+	/* Shared IRQs remain with the root cell. */
+	for (n = 0; n < num_shared_irqs; n++)
+		cell->arch.irq_bitmap[shared_irqs[n].irq_id / 32] &=
+			~(1 << (shared_irqs[n].irq_id % 32));
+
 	for_each_irqchip(chip, cell->config, n) {
 		if (chip->address != system_config->platform_info.arm.gicd_base)
 			continue;
 		for (pos = 0; pos < ARRAY_SIZE(chip->pin_bitmap); pos++)
 			root_cell.arch.irq_bitmap[chip->pin_base / 32 + pos] &=
-				~chip->pin_bitmap[pos];
+				~(chip->pin_bitmap[pos] &
+				  cell->arch.irq_bitmap[chip->pin_base / 32 + pos]);
 	}
 
 	return 0;
@@ -498,6 +537,36 @@ void irqchip_cell_reset(struct cell *cell)
 		mmio_write32(gicd_base + GICD_ICENABLER + n * 4, mask);
 		mmio_write32(gicd_base + GICD_ICACTIVER + n * 4, mask);
 	}
+
+	if (cell == &root_cell)
+		return;
+
+	/* a shared IRQ injected into the cell may not have been completed */
+	for (n = 0; n < num_shared_irqs; n++)
+		if (shared_irqs[n].cell == cell)
+			mmio_write32(gicd_base + GICD_ICACTIVER +
+				     shared_irqs[n].irq_id / 32 * 4,
+				     1 << (shared_irqs[n].irq_id % 32));
+}
+
+int irqchip_register_shared_irq(u16 irq_id,
+				struct cell *(*get_target)(u16 irq_id))
+{
+	/* without trapped IRQs, there is no way to redirect them */
+	if (sdei_available)
+		return trace_error(-ENOSYS);
+
+	if (irq_id < 32 || !irqchip_irq_in_cell(&root_cell, irq_id))
+		return trace_error(-EINVAL);
+
+	if (num_shared_irqs >= MAX_SHARED_IRQS)
+		return trace_error(-ENOMEM);
+
+	shared_irqs[num_shared_irqs].irq_id = irq_id;
+	shared_irqs[num_shared_irqs].get_target = get_target;
+	num_shared_irqs++;
+
+	return 0;
 }
 
 static void irqchip_cell_exit(struct cell *cell)

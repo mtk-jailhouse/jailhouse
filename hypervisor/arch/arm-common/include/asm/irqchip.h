@@ -105,5 +105,13 @@ void irqchip_trigger_external_irq(u16 irq_id);
 
 bool irqchip_irq_in_cell(struct cell *cell, unsigned int irq_id);
 
+/*
+ * A shared IRQ stays with the root cell, also if other cells list it. Only
+ * the root cell can configure it. On each occurrence, get_target returns the
+ * cell to inject it into, or NULL for the cell of the receiving CPU.
+ */
+int irqchip_register_shared_irq(u16 irq_id,
+				struct cell *(*get_target)(u16 irq_id));
+
 #endif /* __ASSEMBLY__ */
 #endif /* _JAILHOUSE_ASM_IRQCHIP_H */
