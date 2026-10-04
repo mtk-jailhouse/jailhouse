@@ -88,8 +88,7 @@ static int gic_v3_init(void)
 		if (GICR_PIDR2_ARCH(pidr) != 3)
 			break;
 
-		typer = mmio_read32(redist_addr + GICR_TYPER);
-		typer |= (u64)mmio_read32(redist_addr + GICR_TYPER + 4) << 32;
+		typer = mmio_read64(redist_addr + GICR_TYPER);
 		if ((typer >> 32) == aff) {
 			gicr = redist_addr;
 			break;

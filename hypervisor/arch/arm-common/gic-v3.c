@@ -23,8 +23,6 @@
 #include <asm/sysregs.h>
 #include <asm/traps.h>
 
-#define GIC_V3_REDIST_SIZE	0x20000
-#define GIC_V4_REDIST_SIZE	0x40000
 
 /*
  * This implementation assumes that the kernel driver already initialised most
@@ -141,13 +139,16 @@ static int gicv3_init(void)
 		last_gicr--;
 
 	/*
-	 * Let the per-cpu code access the redistributors. This makes the
+	 * Let the per-cpu code access the redistributors. Unless the config
+	 * specifies the size of the redistributor region, this makes the
 	 * assumption, that redistributors can be found in a sequence.
 	 */
-	if (gic_version == 4)
-		redist_size = GIC_V4_REDIST_SIZE;
-
-	gicr_size = redist_size * (last_gicr + 1);
+	gicr_size = system_config->platform_info.arm.gicr_size;
+	if (!gicr_size) {
+		if (gic_version == 4)
+			redist_size = GIC_V4_REDIST_SIZE;
+		gicr_size = redist_size * (last_gicr + 1);
+	}
 	gicr_base = paging_map_device(
 			system_config->platform_info.arm.gicr_base, gicr_size);
 	if (!gicr_base)
@@ -451,8 +452,48 @@ static enum mmio_result gicv3_handle_redist_access(void *arg,
 	return MMIO_HANDLED;
 }
 
+/*
+ * A redistributor without a CPU, e.g. of a disabled core. Keep the registers
+ * readable that identify it, so that cells can step over it when searching
+ * for their own. Other registers are RAZ/WI.
+ */
+static enum mmio_result gicv3_handle_redist_gap(void *arg,
+						struct mmio_access *mmio)
+{
+	switch (mmio->address) {
+	case GICR_IIDR:
+	case GICR_TYPER:
+	case GICR_TYPER + 4:
+	case 0xffd0 ... 0xfffc: /* ID registers */
+		if (!mmio->is_write) {
+			mmio_perform_access(arg, mmio);
+			return MMIO_HANDLED;
+		}
+		break;
+	}
+
+	if (!mmio->is_write)
+		mmio->value = 0;
+	return MMIO_HANDLED;
+}
+
+static bool gicv3_redist_has_cpu(unsigned long addr)
+{
+	unsigned int cpu;
+
+	for (cpu = 0; cpu < system_config->root_cell.cpu_set_size * 8; cpu++)
+		if (cpu_id_valid(cpu) &&
+		    public_per_cpu(cpu)->gicr.phys_addr == addr)
+			return true;
+	return false;
+}
+
 static int gicv3_cell_init(struct cell *cell)
 {
+	unsigned long redist_size = gic_version == 4 ?
+		GIC_V4_REDIST_SIZE : GIC_V3_REDIST_SIZE;
+	unsigned long base = system_config->platform_info.arm.gicr_base;
+	unsigned long addr, end = base;
 	unsigned int cpu;
 
 	/*
@@ -462,11 +503,25 @@ static int gicv3_cell_init(struct cell *cell)
 	for (cpu = 0; cpu < system_config->root_cell.cpu_set_size * 8; cpu++) {
 		if (!cpu_id_valid(cpu))
 			continue;
-		mmio_region_register(cell, public_per_cpu(cpu)->gicr.phys_addr,
-				     gic_version == 4 ? 0x40000 : 0x20000,
+		addr = public_per_cpu(cpu)->gicr.phys_addr;
+		mmio_region_register(cell, addr, redist_size,
 				     gicv3_handle_redist_access,
 				     public_per_cpu(cpu));
+		end = MAX(end, addr + redist_size);
 	}
+
+	/*
+	 * If the config sizes the redistributor region, that range may
+	 * include redistributors without a CPU.
+	 */
+	if (!system_config->platform_info.arm.gicr_size)
+		return 0;
+
+	for (addr = base; addr < end; addr += redist_size)
+		if (!gicv3_redist_has_cpu(addr))
+			mmio_region_register(cell, addr, redist_size,
+					     gicv3_handle_redist_gap,
+					     gicr_base + (addr - base));
 
 	return 0;
 }
