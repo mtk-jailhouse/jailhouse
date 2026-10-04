@@ -348,6 +348,49 @@ static void gicv3_adjust_irq_target(struct cell *cell, u16 irq_id)
 		mmio_write64(irouter, mpidr);
 }
 
+/*
+ * The SGIs of a cell are virtual: they are pending in the list registers of
+ * the target CPU, or queued while those are full, and not in its
+ * redistributor. The list registers of other CPUs are out of reach: their
+ * SGIs are RAZ/WI.
+ */
+static void gicv3_handle_pending(struct public_per_cpu *cpu_public,
+				 struct mmio_access *mmio)
+{
+	unsigned int mnt_irq = system_config->platform_info.arm.maintenance_irq;
+	u32 sgis = mmio->value & 0xffff;
+	u32 clear, pending;
+	unsigned int n;
+	u64 lr;
+
+	mmio->value &= ~(0xffff | (1 << mnt_irq));
+	mmio_perform_access(cpu_public->gicr.base, mmio);
+	mmio->value &= ~0xffff;
+
+	if (cpu_public->cpu_id != this_cpu_id())
+		return;
+
+	if (mmio->is_write && mmio->address == GICR_SGI_BASE + GICR_ISPENDR) {
+		for (n = 0; n < 16; n++)
+			if (sgis & (1 << n))
+				irqchip_set_pending(this_cpu_public(), n);
+		return;
+	}
+
+	clear = mmio->is_write ? sgis : 0;
+	pending = irqchip_queued_sgis(clear);
+	for (n = 0; n < gic_num_lr; n++) {
+		lr = gicv3_read_lr(n);
+		if (!is_sgi((u32)lr) || !(lr & ICH_LR_PENDING))
+			continue;
+		pending |= 1 << (u32)lr;
+		if (clear & (1 << (u32)lr))
+			gicv3_write_lr(n, lr & ~ICH_LR_PENDING);
+	}
+	if (!mmio->is_write)
+		mmio->value |= pending;
+}
+
 static enum mmio_result gicv3_handle_redist_access(void *arg,
 						   struct mmio_access *mmio)
 {
@@ -373,10 +416,17 @@ static enum mmio_result gicv3_handle_redist_access(void *arg,
 	case GICR_SYNCR:
 		mmio->value = 0;
 		return MMIO_HANDLED;
-	case GICR_SGI_BASE + GICR_ISENABLER:
-	case GICR_SGI_BASE + GICR_ICENABLER:
 	case GICR_SGI_BASE + GICR_ISPENDR:
 	case GICR_SGI_BASE + GICR_ICPENDR:
+		/* with SDEI, cells get physical SGIs */
+		if (!sdei_available) {
+			if (this_cell() == cpu_public->cell)
+				gicv3_handle_pending(cpu_public, mmio);
+			return MMIO_HANDLED;
+		}
+		/* fall through */
+	case GICR_SGI_BASE + GICR_ISENABLER:
+	case GICR_SGI_BASE + GICR_ICENABLER:
 	case GICR_SGI_BASE + GICR_ISACTIVER:
 	case GICR_SGI_BASE + GICR_ICACTIVER:
 		mmio->value &= ~(SGI_MASK | (1 << mnt_irq));
