@@ -14,10 +14,11 @@
  * the COPYING file in the top-level directory.
  *
  * The cell runs on CPU 3, a Cortex-A55, unless GENIO_ZEPHYR_CPUS selects
- * other CPUs. Its image is loaded to 0x8000, an 8 MiB window
- * at 0x6b000000. It owns UART1 for its console, and GPIO 38 and 40 with
- * their EINTs. With GENIO_AFE defined, it also shares the audio front end,
- * its clocks and its DMA memory with the root cell, and owns the eTDM pins.
+ * other CPUs. Its image is loaded to 0x8000, an 8 MiB window at 0x6b000000,
+ * where the lowest CPU starts; further CPUs wait for PSCI CPU_ON, via SMC.
+ * The cell owns UART1 for its console, and GPIO 38 and 40 with their EINTs.
+ * With GENIO_AFE defined, it also shares the audio front end, its clocks and
+ * its DMA memory with the root cell, and owns the eTDM pins.
  */
 
 #include <jailhouse/types.h>
