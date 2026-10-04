@@ -22,6 +22,9 @@ struct arch_cell {
 
 	u32 irq_bitmap[1024/32];
 
+	/* pins owned in the MediaTek EINT, GPIO and clock gate blocks */
+	u32 mtk_bitmap[3][256 / 32];
+
 	struct {
 		u8 ent_count;
 		struct pvu_tlb_entry *entries;

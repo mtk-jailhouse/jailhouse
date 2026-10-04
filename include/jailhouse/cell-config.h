@@ -108,6 +108,7 @@ struct jailhouse_cell_desc {
 	__u32 num_pci_caps;
 	__u32 num_stream_ids;
 	__u32 num_smc_ids;
+	__u32 num_vendor_resources;
 
 	__u32 vpci_irq_base;
 
@@ -316,6 +317,21 @@ struct jailhouse_pio {
 		.length = __length,	\
 	}
 
+/*
+ * Vendor-specific resources: the cell owns the pins (or clock gates) set in
+ * bitmap, counted from base, of the register block at address.
+ */
+#define JAILHOUSE_VENDOR_MT8188_EINT	1
+#define JAILHOUSE_VENDOR_MT8188_GPIO	2
+#define JAILHOUSE_VENDOR_MT8188_CLK	3
+
+struct jailhouse_vendor_resource {
+	__u32 type;
+	__u64 address;
+	__u32 base;
+	__u32 bitmap[4];
+} __attribute__((packed));
+
 #define JAILHOUSE_SYSTEM_SIGNATURE	"JHSYS"
 
 /*
@@ -384,7 +400,9 @@ jailhouse_cell_config_size(struct jailhouse_cell_desc *cell)
 		cell->num_pci_devices * sizeof(struct jailhouse_pci_device) +
 		cell->num_pci_caps * sizeof(struct jailhouse_pci_capability) +
 		cell->num_stream_ids * sizeof(__u32) +
-		cell->num_smc_ids * sizeof(__u32);
+		cell->num_smc_ids * sizeof(__u32) +
+		cell->num_vendor_resources *
+			sizeof(struct jailhouse_vendor_resource);
 }
 
 static inline __u32
@@ -461,6 +479,14 @@ jailhouse_cell_smc_ids(const struct jailhouse_cell_desc *cell)
 {
 	return (const __u32 *)((void *)jailhouse_cell_stream_ids(cell) +
 		cell->num_stream_ids * sizeof(union jailhouse_stream_id));
+}
+
+static inline const struct jailhouse_vendor_resource *
+jailhouse_cell_vendor_resources(const struct jailhouse_cell_desc *cell)
+{
+	return (const struct jailhouse_vendor_resource *)
+		((void *)jailhouse_cell_smc_ids(cell) +
+		 cell->num_smc_ids * sizeof(__u32));
 }
 
 #endif /* !_JAILHOUSE_CELL_CONFIG_H */

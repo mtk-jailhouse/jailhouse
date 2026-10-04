@@ -150,7 +150,7 @@ class PIORegion:
 
 
 class CellConfig:
-    _HEADER_FORMAT = '=5sBH32s4xIIIIIIIIIIIQ8x32x'
+    _HEADER_FORMAT = '=5sBH32s4xIIIIIIIIIIIIQ8x32x'
 
     def __init__(self, data, root_cell=False):
         self.data = data
@@ -170,6 +170,7 @@ class CellConfig:
              self.num_pci_caps,
              self.num_stream_ids,
              self.num_smc_ids,
+             self.num_vendor_resources,
              self.vpci_irq_base,
              self.cpu_reset_address) = \
                 struct.unpack_from(CellConfig._HEADER_FORMAT, self.data)
