@@ -54,7 +54,9 @@ define DECLARE_TARGETS =
 endef
 
 # prevent deleting intermediate files which would cause rebuilds
+ifdef KEEP_INTERMEDIATES
 .SECONDARY: $(addprefix $(obj)/,$(targets))
+endif
 
 .SECONDEXPANSION:
 $(obj)/%-linked.o: $(INMATES_LIB)/inmate.lds $$(addprefix $$(obj)/,$$($$*-y)) \

@@ -14,6 +14,13 @@
 ALWAYS_COMPAT_MK := $(src)/scripts/always-compat.mk
 export ALWAYS_COMPAT_MK
 
+# Kbuild keeps intermediate files itself since Linux 5.0. Since 6.2, it does so
+# via .NOTINTERMEDIATE on make > 4.4, which cannot be combined with .SECONDARY.
+ifeq ($(shell expr \( $(VERSION) \* $$((0x100)) \+ $(PATCHLEVEL) \) \< $$((0x500))),1)
+KEEP_INTERMEDIATES := y
+export KEEP_INTERMEDIATES
+endif
+
 INC_CONFIG_H = $(src)/include/jailhouse/config.h
 export INC_CONFIG_H
 
