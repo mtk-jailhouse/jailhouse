@@ -248,6 +248,7 @@ extern u8 __dtb_vpci_template_begin[], __dtb_vpci_template_end[];
 static int overlay_id;
 static bool overlay_applied;
 static struct of_changeset overlay_changeset;
+static struct of_changeset status_changeset;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,17,0)
 static struct device_node *overlay;
 #endif
@@ -304,6 +305,7 @@ static bool create_vpci_of_overlay(struct jailhouse_system *config)
 {
 	u32 address_cells, size_cells, gic_address_cells, gic_phandle;
 	struct device_node *vpci_node = NULL;
+	struct of_changeset_entry *ce;
 	struct device_node *root, *gic;
 	struct property *prop = NULL;
 	unsigned int n, cell;
@@ -450,28 +452,46 @@ static bool create_vpci_of_overlay(struct jailhouse_system *config)
 
 	if (of_changeset_add_property(&overlay_changeset, vpci_node, prop) < 0)
 		goto out;
-
-	prop = alloc_prop("status", 3);
-	if (!prop)
-		goto out;
-	strcpy(prop->value, "ok");
-
-	if (of_changeset_update_property(&overlay_changeset, vpci_node,
-					 prop) < 0)
-		goto out;
 	prop = NULL;
 
 	if (of_changeset_apply(&overlay_changeset) < 0)
 		goto out;
 
-	overlay_applied = true;
+	/* enable the host separately, see destroy_vpci_of_overlay() */
+	of_changeset_init(&status_changeset);
 
+	prop = alloc_prop("status", 3);
+	if (!prop)
+		goto out_revert;
+	strcpy(prop->value, "ok");
+
+	if (of_changeset_update_property(&status_changeset, vpci_node,
+					 prop) < 0)
+		goto out_revert;
+	prop = NULL;
+
+	if (of_changeset_apply(&status_changeset) < 0)
+		goto out_revert;
+
+	overlay_applied = true;
+	goto out;
+
+out_revert:
+	/* the status changeset was not applied, its property is still ours */
+	list_for_each_entry(ce, &status_changeset.entries, node)
+		free_prop(ce->prop);
+	of_changeset_destroy(&status_changeset);
+	/*
+	 * Reverted properties go to the node's deadprops and are freed with
+	 * it. Destroying the changeset empties it, so that the path below
+	 * frees none of them.
+	 */
+	of_changeset_revert(&overlay_changeset);
+	of_changeset_destroy(&overlay_changeset);
 out:
 	free_prop(prop);
 	of_node_put(vpci_node);
 	if (!overlay_applied) {
-		struct of_changeset_entry *ce;
-
 		list_for_each_entry(ce, &overlay_changeset.entries, node)
 			free_prop(ce->prop);
 		of_changeset_destroy(&overlay_changeset);
@@ -489,6 +509,14 @@ out_compat:
 static void destroy_vpci_of_overlay(void)
 {
 	if (overlay_applied) {
+		/*
+		 * Reverting a changeset removes all its properties before it
+		 * notifies the host's removal. Disable the host first, so
+		 * that it goes while it still has its linux,pci-domain, or
+		 * the PCI core cannot release that domain.
+		 */
+		of_changeset_revert(&status_changeset);
+		of_changeset_destroy(&status_changeset);
 		of_changeset_revert(&overlay_changeset);
 		of_changeset_destroy(&overlay_changeset);
 		of_overlay_remove(&overlay_id);
