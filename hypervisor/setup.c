@@ -182,6 +182,10 @@ static void init_late(void)
 			return;
 	}
 
+	error = check_vendor_resources(root_cell.config);
+	if (error)
+		return;
+
 	for_each_mem_region(mem, root_cell.config, n) {
 		if (JAILHOUSE_MEMORY_IS_SUBPAGE(mem))
 			error = mmio_subpage_register(&root_cell, mem);

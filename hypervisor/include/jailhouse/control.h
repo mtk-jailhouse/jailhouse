@@ -35,6 +35,13 @@ extern unsigned long panic_cpu;
 
 extern struct jailhouse_system *system_config;
 
+/**
+ * Set by the unit that handles the vendor resources of cell configurations,
+ * in its init function. Without such a unit, cells with vendor resources are
+ * refused.
+ */
+extern bool vendor_resources_handled;
+
 unsigned int next_cpu(unsigned int cpu, struct cpu_set *cpu_set,
 		      unsigned int exception);
 
@@ -122,6 +129,7 @@ static inline bool cell_owns_cpu(struct cell *cell, unsigned int cpu_id)
 bool cpu_id_valid(unsigned long cpu_id);
 
 int cell_init(struct cell *cell);
+int check_vendor_resources(const struct jailhouse_cell_desc *config);
 
 void config_commit(struct cell *cell_added_removed);
 

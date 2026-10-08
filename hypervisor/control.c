@@ -37,6 +37,8 @@ static unsigned int num_cells = 1;
 volatile unsigned long panic_in_progress;
 unsigned long panic_cpu = -1;
 
+bool vendor_resources_handled;
+
 /**
  * CPU set iterator.
  * @param cpu		Previous CPU ID.
@@ -267,6 +269,24 @@ int cell_init(struct cell *cell)
 	return err;
 }
 
+/**
+ * Check that a unit handles the vendor resources of a cell configuration.
+ * @param config	Cell configuration.
+ *
+ * @return 0 if no vendor resources or a unit for them, -EINVAL otherwise.
+ *
+ * @see vendor_resources_handled
+ */
+int check_vendor_resources(const struct jailhouse_cell_desc *config)
+{
+	if (config->num_vendor_resources == 0 || vendor_resources_handled)
+		return 0;
+
+	printk("ERROR: Cell \"%s\" has vendor resources, but no unit "
+	       "handles them\n", config->name);
+	return trace_error(-EINVAL);
+}
+
 static void cell_exit(struct cell *cell)
 {
 	mmio_cell_exit(cell);
@@ -470,6 +490,10 @@ static int cell_create(struct per_cpu *cpu_data, unsigned long config_address)
 	cell->data_pages = cell_pages;
 	cell->config = ((void *)cell) + sizeof(*cell);
 	memcpy(cell->config, cfg, cfg_total_size);
+
+	err = check_vendor_resources(cell->config);
+	if (err)
+		goto err_free_cell;
 
 	err = cell_init(cell);
 	if (err)
