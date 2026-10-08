@@ -3,6 +3,7 @@
 *.mod
 *.mod.[co]
 *.cell
+*.sections
 *.cmd
 *.bin
 *.gcno
