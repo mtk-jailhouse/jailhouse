@@ -319,8 +319,14 @@ struct jailhouse_pio {
 
 /*
  * Vendor-specific resources: the cell owns the pins (or clock gates) set in
- * bitmap, counted from base, of the register block at address.
+ * bitmap, counted from base, of the register block at address. The type
+ * names the vendor's kind of block; the SoC is the one that the hypervisor
+ * is built for (CONFIG_SOC).
  */
+#define JAILHOUSE_VENDOR_MTK_EINT	1
+#define JAILHOUSE_VENDOR_MTK_GPIO	2
+#define JAILHOUSE_VENDOR_MTK_CLK	3
+
 struct jailhouse_vendor_resource {
 	__u32 type;
 	__u64 address;

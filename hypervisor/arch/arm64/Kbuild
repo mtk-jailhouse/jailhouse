@@ -23,3 +23,16 @@ lib-y := $(common-objs-y)
 lib-y += entry.o setup.o control.o mmio.o paging.o caches.o traps.o
 lib-y += iommu.o smmu-v3.o ti-pvu.o
 lib-y += smmu.o
+
+# MediaTek clock gate, EINT and GPIO units: their engines (mtk-common*) and
+# the tables of the SoC that CONFIG_SOC names (mtk-<soc>-*); without
+# CONFIG_SOC, the hypervisor has no such units
+ifneq ($(CONFIG_SOC),)
+lib-y += mtk-common.o mtk-common-clk.o mtk-common-eint.o mtk-common-gpio.o
+endif
+
+ifeq ($(CONFIG_SOC),mt8188)
+lib-y += mtk-mt8188-clk.o mtk-mt8188-eint.o mtk-mt8188-gpio.o
+else ifneq ($(CONFIG_SOC),)
+$(error CONFIG_SOC=$(CONFIG_SOC) is not supported, use CONFIG_SOC=mt8188)
+endif
