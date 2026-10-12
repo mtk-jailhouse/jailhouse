@@ -88,6 +88,10 @@ or `700`.
 | `genio-<board>-evk-zephyr-afe-smp.cell` | 2, 3 | 2, 3 | Zephyr with audio on two Cortex-A55 | As `-zephyr-afe` |
 | `genio-<board>-evk-zephyr-rpmsg.cell` | 3 | 3 | Zephyr with an ivshmem device shared with Linux, for RPMsg | As `-zephyr`, plus the ivshmem device, shared with the root cell |
 
+A cell is named after its file without `genio-<board>-evk-`, for example
+`zephyr-afe` for `genio-<board>-evk-zephyr-afe.cell`; `jailhouse cell load`,
+`start` and `destroy` take that name. The root cell is `genio-<board>-evk`.
+
 The uart-demo and Zephyr cells load into the same 8 MiB of memory and use
 UART1, so only one of them exists at a time. Zephyr images start at address
 `0x8000` of their cell.

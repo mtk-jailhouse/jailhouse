@@ -78,8 +78,9 @@ The cells of each board are built from one table,
   shared devices, interrupts, virtual PCI devices, SiP calls, pins and clock
   gates. The cell keeps its file name. The header comments describe each list.
 - **Add a cell** with a new block. Start it in the first column with
-  `GENIO_<kind>_CELL("genio-<board>-evk-<name>",`: the build takes the cell
-  names from these lines.
+  `GENIO_<kind>_CELL("genio-<board>-evk-<name>",`: the build takes the file
+  names from these lines. An inmate cell's name, the next argument, is
+  `"<name>"`; the build checks that it matches the file.
 - **Keep both boards alike.** Change both tables unless the change is specific
   to one board.
 - **Keep facts in the headers.** Addresses, SoC values and the memory layout
