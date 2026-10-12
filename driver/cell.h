@@ -30,6 +30,7 @@ struct cell {
 	unsigned int id;
 	char name[JAILHOUSE_CELL_ID_NAMELEN+1];
 	cpumask_t cpus_assigned;
+	bool failure_notified;
 	u32 num_memory_regions;
 	struct jailhouse_memory *memory_regions;
 #ifdef CONFIG_PCI
@@ -52,5 +53,7 @@ int jailhouse_cmd_cell_start(const char __user *arg);
 int jailhouse_cmd_cell_destroy(const char __user *arg);
 
 int jailhouse_cmd_cell_destroy_non_root(void);
+
+void jailhouse_cell_notify_failures(void);
 
 #endif /* !_JAILHOUSE_DRIVER_CELL_H */

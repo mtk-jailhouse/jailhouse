@@ -151,6 +151,20 @@ void jailhouse_cell_delete_root(void)
 	root_cell = NULL;
 }
 
+/* Wake up the pollers of the state of each cell that failed, once. */
+void jailhouse_cell_notify_failures(void)
+{
+	struct cell *cell;
+
+	list_for_each_entry(cell, &cells, entry)
+		if (!cell->failure_notified &&
+		    jailhouse_call_arg1(JAILHOUSE_HC_CELL_GET_STATE,
+					cell->id) == JAILHOUSE_CELL_FAILED) {
+			cell->failure_notified = true;
+			sysfs_notify(&cell->kobj, NULL, "state");
+		}
+}
+
 int jailhouse_cmd_cell_create(struct jailhouse_cell_create __user *arg)
 {
 	struct jailhouse_cell_create cell_params;

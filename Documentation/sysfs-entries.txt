@@ -15,7 +15,7 @@ can be used for monitoring the state of the hypervisor and its cells.
    |- <id>                      - unique numerical ID
    |  |- name                   - cell name
    |  |- state                  - "running", "running/locked", "shut down", or
-   |  |                           "failed"
+   |  |                           "failed"; pollable for "failed" (POLLPRI)
    |  |- cpus_assigned          - bitmask of assigned logical CPUs
    |  |- cpus_assigned_list     - human readable list of assigned logical CPUs
    |  |- cpus_failed            - bitmask of logical CPUs that caused a failure

@@ -33,6 +33,8 @@
 #include <linux/vmalloc.h>
 #include <linux/io.h>
 #include <linux/ioport.h>
+#include <linux/hrtimer.h>
+#include <linux/workqueue.h>
 #include <asm/barrier.h>
 #include <asm/smp.h>
 #include <asm/cacheflush.h>
@@ -104,6 +106,10 @@ static int error_code;
 static struct jailhouse_virt_console* volatile console_page;
 static bool console_available;
 static struct resource *hypervisor_mem_res;
+
+static unsigned int tick_ms = 100;
+static struct hrtimer tick_timer;
+static long tick_failures;
 
 static typeof(ioremap_page_range) *ioremap_page_range_sym;
 #ifdef CONFIG_X86
@@ -363,6 +369,80 @@ console_free_out:
 }
 
 /* See Documentation/bootstrap-interface.txt */
+static void tick_notify(struct work_struct *work)
+{
+	mutex_lock(&jailhouse_lock);
+	if (jailhouse_enabled)
+		jailhouse_cell_notify_failures();
+	mutex_unlock(&jailhouse_lock);
+}
+
+static DECLARE_WORK(tick_work, tick_notify);
+
+/*
+ * The hypervisor evaluates time-based conditions of the cells, such as
+ * watchdog deadlines, on each tick, and returns the number of cell failures.
+ */
+static enum hrtimer_restart tick(struct hrtimer *timer)
+{
+	long failures = jailhouse_call_arg1(JAILHOUSE_HC_TICK, tick_ms);
+
+	if (failures > tick_failures) {
+		tick_failures = failures;
+		schedule_work(&tick_work);
+	}
+
+	hrtimer_forward_now(timer, ms_to_ktime(tick_ms));
+	return HRTIMER_RESTART;
+}
+
+static void tick_start(void)
+{
+	if (tick_ms != 0)
+		hrtimer_start(&tick_timer, ms_to_ktime(tick_ms),
+			      HRTIMER_MODE_REL);
+}
+
+/*
+ * The period can change while the hypervisor is enabled. A tick at once passes
+ * the new period to the hypervisor. 0 stops the tick, for tests: the cells'
+ * watchdogs are no longer checked.
+ */
+static int tick_ms_set(const char *val, const struct kernel_param *kp)
+{
+	unsigned int ms;
+	int err;
+
+	err = kstrtouint(val, 0, &ms);
+	if (err)
+		return err;
+
+	mutex_lock(&jailhouse_lock);
+	if (jailhouse_enabled) {
+		hrtimer_cancel(&tick_timer);
+		tick_ms = ms;
+		if (tick_ms != 0)
+			hrtimer_start(&tick_timer, 0, HRTIMER_MODE_REL);
+		else
+			pr_warn("jailhouse: tick stopped, the cells' watchdogs "
+				"are not checked\n");
+	} else {
+		tick_ms = ms;
+	}
+	mutex_unlock(&jailhouse_lock);
+
+	return 0;
+}
+
+static const struct kernel_param_ops tick_ms_ops = {
+	.set = tick_ms_set,
+	.get = param_get_uint,
+};
+
+module_param_cb(tick_ms, &tick_ms_ops, &tick_ms, 0644);
+MODULE_PARM_DESC(tick_ms, "Period of the hypervisor tick in ms; "
+		 "0, for tests, leaves the cells' watchdogs unchecked");
+
 static int jailhouse_cmd_enable(struct jailhouse_system __user *arg)
 {
 	const struct firmware *hypervisor;
@@ -615,6 +695,8 @@ static int jailhouse_cmd_enable(struct jailhouse_system __user *arg)
 	jailhouse_pci_virtual_root_devices_add(&config_header);
 
 	jailhouse_enabled = true;
+	tick_failures = 0;
+	tick_start();
 
 	mutex_unlock(&jailhouse_lock);
 
@@ -702,6 +784,9 @@ static int jailhouse_cmd_disable(void)
 
 	error_code = 0;
 
+	/* no hypercalls once the CPUs leave the hypervisor */
+	hrtimer_cancel(&tick_timer);
+
 	preempt_disable();
 
 	if (num_online_cpus() != cpumask_weight(&root_cell->cpus_assigned)) {
@@ -712,6 +797,7 @@ static int jailhouse_cmd_disable(void)
 
 		preempt_enable();
 
+		tick_start();
 		err = -EBUSY;
 		goto unlock_out;
 	}
@@ -733,8 +819,10 @@ static int jailhouse_cmd_disable(void)
 	preempt_enable();
 
 	err = error_code;
-	if (err)
+	if (err) {
+		tick_start();
 		goto unlock_out;
+	}
 
 	update_last_console();
 
@@ -965,6 +1053,13 @@ static int __init jailhouse_init(void)
 
 	init_hypercall();
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,13,0)
+	hrtimer_setup(&tick_timer, tick, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+#else
+	hrtimer_init(&tick_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	tick_timer.function = tick;
+#endif
+
 	return 0;
 exit_misc:
 	misc_deregister(&jailhouse_misc_dev);
@@ -979,6 +1074,7 @@ unreg_dev:
 
 static void __exit jailhouse_exit(void)
 {
+	cancel_work_sync(&tick_work);
 	unregister_reboot_notifier(&jailhouse_shutdown_nb);
 	misc_deregister(&jailhouse_misc_dev);
 	jailhouse_sysfs_exit(jailhouse_dev);
