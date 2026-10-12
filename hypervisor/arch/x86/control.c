@@ -86,6 +86,10 @@ void arch_cell_destroy(struct cell *cell)
 	vcpu_cell_exit(cell);
 }
 
+void arch_cell_fail(struct cell *cell)
+{
+}
+
 void arch_cell_reset(struct cell *cell)
 {
 	struct jailhouse_comm_region *comm_region = &cell->comm_page.comm_region;

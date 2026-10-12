@@ -538,8 +538,13 @@ void irqchip_cell_reset(struct cell *cell)
 		mmio_write32(gicd_base + GICD_ICACTIVER + n * 4, mask);
 	}
 
-	if (cell == &root_cell)
-		return;
+	if (cell != &root_cell)
+		irqchip_release_shared_irqs(cell);
+}
+
+void irqchip_release_shared_irqs(struct cell *cell)
+{
+	unsigned int n;
 
 	/* a shared IRQ injected into the cell may not have been completed */
 	for (n = 0; n < num_shared_irqs; n++)

@@ -157,6 +157,15 @@ static void cell_resume(struct cell *cell)
 		resume_cpu(cpu);
 }
 
+void cell_fail(struct cell *cell, const char *reason)
+{
+	cell_suspend(cell);
+	arch_cell_fail(cell);
+	cell->comm_page.comm_region.cell_state = JAILHOUSE_CELL_FAILED;
+
+	printk("Cell \"%s\" failed: %s\n", cell->config->name, reason);
+}
+
 /**
  * Deliver a message to cell and wait for the reply.
  * @param cell		Target cell.
@@ -199,11 +208,8 @@ static bool cell_exchange_message(struct cell *cell, u32 message,
 			return false;
 
 		if (cell->config->msg_reply_timeout > 0 && --timeout == 0) {
-			printk("Timeout expired while waiting for reply from "
-			       "target cell\n");
-			cell_suspend(cell);
-			cell->comm_page.comm_region.cell_state =
-				JAILHOUSE_CELL_FAILED;
+			cell_fail(cell, "timeout expired while waiting for "
+				  "its reply");
 			return true;
 		}
 

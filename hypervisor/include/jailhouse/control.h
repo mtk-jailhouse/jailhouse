@@ -131,6 +131,18 @@ bool cpu_id_valid(unsigned long cpu_id);
 int cell_init(struct cell *cell);
 int check_vendor_resources(const struct jailhouse_cell_desc *config);
 
+/**
+ * Stop a cell that cannot continue, and mark it failed.
+ * @param cell		Cell to stop; not the root cell.
+ * @param reason	Why it failed, for the hypervisor log.
+ *
+ * All CPUs of the cell are suspended. The cell keeps its resources until the
+ * root cell destroys it, and the root cell sees the failure in the cell state.
+ *
+ * @note This function must not be invoked on a CPU of the cell.
+ */
+void cell_fail(struct cell *cell, const char *reason);
+
 void config_commit(struct cell *cell_added_removed);
 
 long hypercall(unsigned long code, unsigned long arg1, unsigned long arg2);
@@ -263,6 +275,17 @@ void arch_cell_destroy(struct cell *cell);
  * @see arch_reset_cpu
  */
 void arch_cell_reset(struct cell *cell);
+
+/**
+ * Performs the architecture-specific steps when a cell has failed.
+ * @param cell		Cell that failed, with all its CPUs suspended.
+ *
+ * Releases what the stopped cell holds that other cells depend on. Everything
+ * else stays with the cell until it is destroyed or reset.
+ *
+ * @see cell_fail
+ */
+void arch_cell_fail(struct cell *cell);
 
 /**
  * Performs the architecture-specific steps for applying configuration changes.

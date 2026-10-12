@@ -159,6 +159,12 @@ int arch_cell_create(struct cell *cell)
 	return arm_paging_cell_init(cell);
 }
 
+void arch_cell_fail(struct cell *cell)
+{
+	/* A shared IRQ injected into the cell would otherwise stay active. */
+	irqchip_release_shared_irqs(cell);
+}
+
 void arch_cell_reset(struct cell *cell)
 {
 	unsigned int first = first_cpu(cell->cpu_set);

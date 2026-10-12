@@ -89,6 +89,7 @@ void irqchip_cpu_reset(struct per_cpu *cpu_data);
 void irqchip_cpu_shutdown(struct public_per_cpu *cpu_public);
 
 void irqchip_cell_reset(struct cell *cell);
+void irqchip_release_shared_irqs(struct cell *cell);
 
 void irqchip_config_commit(struct cell *cell_added_removed);
 
