@@ -202,7 +202,7 @@
 #define REG_NAME(_name)     EINT_OFFSET_ ## _name
 
 
-/* Access descriptor for [EINT_OFFSET_STA_0 .. EINT_OFFSET_D0EN_7] */
+/* Access descriptor for [EINT_OFFSET_STA_0 .. EINT_OFFSET_D0EN_6] */
 static const access_descr_t eint_access_descr_0 [] =
 {
     /* 0x0000 */ ACCESS_DESCR (STA_0, STA_0, ACCESS_RO, ACCESS_ONE_BIT),           ACCESS_DESCR (STA_1, STA_0, ACCESS_RO, ACCESS_ONE_BIT),           ACCESS_DESCR (STA_2, STA_0, ACCESS_RO, ACCESS_ONE_BIT),           ACCESS_DESCR (STA_3, STA_0, ACCESS_RO, ACCESS_ONE_BIT),
@@ -269,8 +269,8 @@ static const access_descr_t eint_access_descr_0 [] =
     /* 0x03d0 */ ACCESS_DESCR_EMPTY,                                               ACCESS_DESCR_EMPTY,                                               ACCESS_DESCR_EMPTY,                                               ACCESS_DESCR_EMPTY,
     /* 0x03e0 */ ACCESS_DESCR_EMPTY,                                               ACCESS_DESCR_EMPTY,                                               ACCESS_DESCR_EMPTY,                                               ACCESS_DESCR_EMPTY,
     /* 0x03f0 */ ACCESS_DESCR_EMPTY,                                               ACCESS_DESCR_EMPTY,                                               ACCESS_DESCR_EMPTY,                                               ACCESS_DESCR_EMPTY,
-    /* 0x0380 */ ACCESS_DESCR (D0EN_0, D0EN_0, ACCESS_RW, ACCESS_ONE_BIT),         ACCESS_DESCR (D0EN_1, D0EN_0, ACCESS_RW, ACCESS_ONE_BIT),         ACCESS_DESCR (D0EN_2, D0EN_0, ACCESS_RW, ACCESS_ONE_BIT),         ACCESS_DESCR (D0EN_3, D0EN_0, ACCESS_RW, ACCESS_ONE_BIT),
-    /* 0x0390 */ ACCESS_DESCR (D0EN_4, D0EN_0, ACCESS_RW, ACCESS_ONE_BIT),         ACCESS_DESCR (D0EN_5, D0EN_0, ACCESS_RW, ACCESS_ONE_BIT),         ACCESS_DESCR (D0EN_6, D0EN_0, ACCESS_RW, ACCESS_ONE_BIT),         ACCESS_DESCR_EMPTY,
+    /* 0x0400 */ ACCESS_DESCR (D0EN_0, D0EN_0, ACCESS_RW, ACCESS_ONE_BIT),         ACCESS_DESCR (D0EN_1, D0EN_0, ACCESS_RW, ACCESS_ONE_BIT),         ACCESS_DESCR (D0EN_2, D0EN_0, ACCESS_RW, ACCESS_ONE_BIT),         ACCESS_DESCR (D0EN_3, D0EN_0, ACCESS_RW, ACCESS_ONE_BIT),
+    /* 0x0410 */ ACCESS_DESCR (D0EN_4, D0EN_0, ACCESS_RW, ACCESS_ONE_BIT),         ACCESS_DESCR (D0EN_5, D0EN_0, ACCESS_RW, ACCESS_ONE_BIT),         ACCESS_DESCR (D0EN_6, D0EN_0, ACCESS_RW, ACCESS_ONE_BIT),         ACCESS_DESCR_EMPTY,
 };
 
 /* Access descriptor for [EINT_OFFSET_RAW_STA_0 .. EINT_OFFSET_RAW_STA_7] */
@@ -284,12 +284,12 @@ static const access_descr_map_t  eint_access_descr_map [] =
 {
     {
         .reg_start    = REG_NAME (STA_0),
-        .reg_end      = REG_NAME (D0EN_4) + REG_SIZE,
+        .reg_end      = REG_NAME (D0EN_6) + REG_SIZE,
         .access_descr = eint_access_descr_0
     },
     {
         .reg_start    = REG_NAME (RAW_STA_0),
-        .reg_end      = REG_NAME (RAW_STA_4) + REG_SIZE,
+        .reg_end      = REG_NAME (RAW_STA_7) + REG_SIZE,
         .access_descr = eint_access_descr_1
     }
 };
