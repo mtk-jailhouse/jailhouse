@@ -267,7 +267,7 @@ _Static_assert(GENIO_IVSHMEM >= GENIO_WITHHELD_END &&
  * peer 0 of the ivshmem device.
  *
  * Not mapped, but mediated by the hypervisor: the GIC, the clock gates,
- * GPIO, EINT and the pin configuration.
+ * GPIO and EINT. The pin configuration blocks are mapped.
  */
 #define GENIO_ROOT_LOW_REGIONS						\
 	(MT8188_MMIO_REGIONS,						\
