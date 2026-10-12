@@ -48,8 +48,9 @@ configuration format is revision 15; cells built from other trees do not load.
 
 To build outside IoT Yocto, run `make` against the Genio BSP kernel.
 `CONFIG_SOC=mt8188` selects the hypervisor's MediaTek units for the SoCs of both
-boards; without it, the hypervisor has no such units and refuses the Genio cells.
-No `config.h` is needed:
+boards, and `mt8370` and `mt8390` are accepted for the same units; without it,
+the hypervisor has no such units and refuses the Genio cells. No `config.h` is
+needed:
 
 ```bash
 make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- KDIR=/path/to/kernel/build CONFIG_SOC=mt8188

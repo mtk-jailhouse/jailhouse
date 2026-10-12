@@ -26,13 +26,16 @@ lib-y += smmu.o
 
 # MediaTek clock gate, EINT and GPIO units: their engines (mtk-common*) and
 # the tables of the SoC that CONFIG_SOC names (mtk-<soc>-*); without
-# CONFIG_SOC, the hypervisor has no such units
+# CONFIG_SOC, the hypervisor has no such units. The MT8370 and MT8390 are
+# MT8188 variants and use its tables.
+mtk-soc := $(patsubst mt8370,mt8188,$(patsubst mt8390,mt8188,$(CONFIG_SOC)))
+
 ifneq ($(CONFIG_SOC),)
 lib-y += mtk-common.o mtk-common-clk.o mtk-common-eint.o mtk-common-gpio.o
 endif
 
-ifeq ($(CONFIG_SOC),mt8188)
+ifeq ($(mtk-soc),mt8188)
 lib-y += mtk-mt8188-clk.o mtk-mt8188-eint.o mtk-mt8188-gpio.o
 else ifneq ($(CONFIG_SOC),)
-$(error CONFIG_SOC=$(CONFIG_SOC) is not supported, use CONFIG_SOC=mt8188)
+$(error CONFIG_SOC=$(CONFIG_SOC) is not supported, use CONFIG_SOC=mt8188, mt8370 or mt8390)
 endif
