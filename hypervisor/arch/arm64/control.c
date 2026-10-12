@@ -94,6 +94,14 @@ void arm_cpu_reset(unsigned long pc, bool aarch32)
 	/* transfer the context that may have been passed to PSCI_CPU_ON */
 	this_cpu_data()->guest_regs.usr[1] = this_cpu_public()->cpu_on_context;
 
+	/*
+	 * The cell may have been loaded with a new image at the addresses this
+	 * CPU executed before. The root cell's maintenance by its own virtual
+	 * addresses does not reach every alias in a VIPT instruction cache, so
+	 * drop all of this CPU's instructions.
+	 */
+	asm volatile("ic iallu; dsb nsh; isb" : : : "memory");
+
 	arm_paging_vcpu_init(&this_cell()->arch.mm);
 
 	irqchip_cpu_reset(this_cpu_data());
