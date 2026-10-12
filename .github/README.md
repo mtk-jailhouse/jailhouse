@@ -36,15 +36,18 @@ such cells ([Documentation/cell-restart.md](../Documentation/cell-restart.md)).
 | Branch | Role |
 |---|---|
 | `mtk-genio-dev` | Default branch. All development lands here. |
-| `mtk-v1.0` | Release branch, cut from `mtk-genio-dev`. It takes fixes as new commits only. Later releases get branches of their own (`mtk-v1.1`, ...). |
+| `mtk-v1.1` | Release branch of 1.1, cut from `mtk-genio-dev`. It takes fixes as new commits only. |
+| `mtk-v1.0` | Release branch of 1.0. It takes fixes as new commits only. |
 | `master` | Mirror of upstream Jailhouse `master`. |
 
 Build products from a release branch. IoT Yocto builds Jailhouse with the
 `jailhouse` recipe of the `meta-mediatek-experimental` layer, which builds this
-repository from the release branch `mtk-v1.0` with `CONFIG_SOC=mt8188` and
+repository from the release branch `mtk-v1.1` with `CONFIG_SOC=mt8188` and
 installs the cells of the machine it builds for; the user guide covers the
-build. The release notes of each release branch list what the release was
-tested with and its known limitations, for example [`Documentation/mtk-v1.0-release-notes.md`](https://github.com/mtk-jailhouse/jailhouse/blob/mtk-v1.0/Documentation/mtk-v1.0-release-notes.md)
+build. The release notes of each release branch list what the release adds,
+what it was tested with and its known limitations:
+[`Documentation/mtk-v1.1-release-notes.md`](https://github.com/mtk-jailhouse/jailhouse/blob/mtk-v1.1/Documentation/mtk-v1.1-release-notes.md)
+on `mtk-v1.1`, and [`Documentation/mtk-v1.0-release-notes.md`](https://github.com/mtk-jailhouse/jailhouse/blob/mtk-v1.0/Documentation/mtk-v1.0-release-notes.md)
 on `mtk-v1.0`.
 
 The hypervisor, driver, tools and cells of a release belong together. The cell
@@ -68,10 +71,11 @@ of the hypervisor and the cells. The user guide covers both.
 
 | Release | IoT Yocto (BSP) | Linux | [mtk-zephyr](https://github.com/mtk-zephyr/mtk-zephyr) | [Genio samples](https://github.com/mtk-zephyr/samples) |
 |---|---|---|---|---|
+| `mtk-v1.1` | v26.0 (`rity-scarthgap-v26.0`) | 6.6.137 | `mtk-genio-v1.1.0` | `mtk-genio-v1.1.0` |
 | `mtk-v1.0` | v26.0 (`rity-scarthgap-v26.0`) | 6.6.137 | `mtk-genio-v1.0.0` | `mtk-genio-v1.0.0` |
 
 The samples tag's `west.yml` pins the mtk-zephyr tag, so
-`west init -m https://github.com/mtk-zephyr/samples --mr mtk-genio-v1.0.0` and
+`west init -m https://github.com/mtk-zephyr/samples --mr mtk-genio-v1.1.0` and
 `west update` reproduce the pairing.
 
 ## Cells
