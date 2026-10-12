@@ -240,6 +240,12 @@ _Static_assert(GENIO_IVSHMEM >= GENIO_WITHHELD_END &&
 		       ((cpu_set) & ~(GENIO_BOARD_CPUS)) == 0,		\
 		       file ": the CPUs must be CPUs of the board")
 
+/* A cell's name is its file name without the board's, GENIO_BOARD "-". */
+#define GENIO_CHECK_NAME(file, name)					\
+	_Static_assert(__builtin_strcmp(file, GENIO_BOARD "-" name) == 0, \
+		       file ": the cell name must be the file name without " \
+		       GENIO_BOARD "-")
+
 /* a whole block, owned by the root cell until handed to other cells */
 #define GENIO_ALL_PINS(kind, block, first)				\
 	{								\
@@ -299,6 +305,8 @@ _Static_assert(GENIO_IVSHMEM >= GENIO_WITHHELD_END &&
 			 GENIO_ROOT_IRQCHIPS, GENIO_ROOT_PCI_DEVICES,	\
 			 smc_ids, GENIO_ROOT_RESOURCES)
 #define GENIO_ROOT_CELL_(id, file, regions, irqchip_list, pci, smc, res) \
+_Static_assert(__builtin_strcmp(file, GENIO_BOARD) == 0,		\
+	       file ": the root cell's file name must be GENIO_BOARD");	\
 static const struct {							\
 	struct jailhouse_system header;					\
 	__u64 cpus[1];							\
@@ -383,6 +391,7 @@ static const struct {							\
 	GENIO_UART_DEMO_CELL_(GENIO_ID, file, cpu_set)
 #define GENIO_UART_DEMO_CELL_(id, file, cpu_set)			\
 GENIO_CHECK_CPUS(file, cpu_set);					\
+GENIO_CHECK_NAME(file, "uart-demo");					\
 static const struct {							\
 	struct jailhouse_cell_desc cell;				\
 	__u64 cpus[1];							\
@@ -423,7 +432,8 @@ static const struct {							\
 }
 
 /*
- * An inmate cell, named cell_name. Its image is loaded to
+ * An inmate cell, named cell_name, which must be its file name without
+ * GENIO_BOARD "-" (checked by the build). Its image is loaded to
  * GENIO_INMATE_ENTRY in the inmate window, where the lowest CPU of the
  * cell starts; the others wait for PSCI CPU_ON, by SMC. The cell always
  * has UART1 for its console, with its interrupt, and the interrupt of its
@@ -449,6 +459,7 @@ static const struct {							\
 #define GENIO_INMATE_CELL_(id, file, cell_name, cpu_set, regions, irqs, pci, \
 			   smc, res)					\
 GENIO_CHECK_CPUS(file, cpu_set);					\
+GENIO_CHECK_NAME(file, cell_name);					\
 _Static_assert(!GENIO_FOLD(GENIO_OUTSIDE, GENIO_OR,			\
 			   GENIO_IRQ_BASE(irqs), 128, GENIO_UNPAREN irqs), \
 	       file ": the interrupts must be within 128 of the lowest"); \

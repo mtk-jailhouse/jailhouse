@@ -13,11 +13,12 @@
  * This work is licensed under the terms of the GNU GPL, version 2.  See
  * the COPYING file in the top-level directory.
  *
- * Each GENIO_<kind>_CELL("<file>", ...) block builds <file>.cell. A block
- * lists what is particular to its cell: CPUs, further memory regions such
- * as shared devices, interrupts, virtual PCI devices, SiP calls, and the
- * pins and clock gates it owns; genio-evk.h adds what all cells of the
- * kind share and describes the lists. The build reads the cell names from
+ * Each GENIO_<kind>_CELL("<file>", ...) block builds <file>.cell, whose
+ * cell name is <file> without GENIO_BOARD "-" (the build checks it). A
+ * block lists what is particular to its cell: CPUs, further memory regions
+ * such as shared devices, interrupts, virtual PCI devices, SiP calls, and
+ * the pins and clock gates it owns; genio-evk.h adds what all cells of the
+ * kind share and describes the lists. The build reads the file names from
  * the lines that start with GENIO_<kind>_CELL(", so begin each block like
  * that, in the first column.
  *
@@ -31,6 +32,9 @@
  */
 
 #include "genio-evk.h"
+
+/* the root cell's file and name, and the start of the other cells' files */
+#define GENIO_BOARD		"genio-700-evk"
 
 /*
  * The cores, by Linux CPU number: 6 Cortex-A55 and 2 Cortex-A78. The
@@ -64,7 +68,7 @@ GENIO_INMATE_CELL("genio-700-evk-zephyr", "zephyr",
 	SMC_IDS(),
 	RESOURCES(GENIO_UART1_RESOURCES, GENIO_HEADER_PINS));
 
-GENIO_INMATE_CELL("genio-700-evk-zephyr-a78", "zephyr",
+GENIO_INMATE_CELL("genio-700-evk-zephyr-a78", "zephyr-a78",
 	CPUS(GENIO_CPU_A78_1),
 	REGIONS(),
 	IRQS(),
@@ -78,7 +82,7 @@ GENIO_INMATE_CELL("genio-700-evk-zephyr-a78", "zephyr",
  * other CPUs either spins before its console exists (no cpu node for its
  * boot CPU) or panics when CPU_ON is denied.
  */
-GENIO_INMATE_CELL("genio-700-evk-zephyr-smp", "zephyr",
+GENIO_INMATE_CELL("genio-700-evk-zephyr-smp", "zephyr-smp",
 	CPUS(GENIO_CPU_A55_2, GENIO_CPU_A55_3),
 	REGIONS(),
 	IRQS(),
@@ -86,7 +90,7 @@ GENIO_INMATE_CELL("genio-700-evk-zephyr-smp", "zephyr",
 	SMC_IDS(),
 	RESOURCES(GENIO_UART1_RESOURCES, GENIO_HEADER_PINS));
 
-GENIO_INMATE_CELL("genio-700-evk-zephyr-afe", "zephyr",
+GENIO_INMATE_CELL("genio-700-evk-zephyr-afe", "zephyr-afe",
 	CPUS(GENIO_CPU_A55_3),
 	REGIONS(GENIO_AFE_REGIONS),
 	IRQS(),
@@ -95,7 +99,7 @@ GENIO_INMATE_CELL("genio-700-evk-zephyr-afe", "zephyr",
 	RESOURCES(GENIO_UART1_RESOURCES, GENIO_HEADER_PINS,
 		  GENIO_ETDM_PINS));
 
-GENIO_INMATE_CELL("genio-700-evk-zephyr-afe-a78", "zephyr",
+GENIO_INMATE_CELL("genio-700-evk-zephyr-afe-a78", "zephyr-afe-a78",
 	CPUS(GENIO_CPU_A78_1),
 	REGIONS(GENIO_AFE_REGIONS),
 	IRQS(),
@@ -104,7 +108,7 @@ GENIO_INMATE_CELL("genio-700-evk-zephyr-afe-a78", "zephyr",
 	RESOURCES(GENIO_UART1_RESOURCES, GENIO_HEADER_PINS,
 		  GENIO_ETDM_PINS));
 
-GENIO_INMATE_CELL("genio-700-evk-zephyr-afe-smp", "zephyr",
+GENIO_INMATE_CELL("genio-700-evk-zephyr-afe-smp", "zephyr-afe-smp",
 	CPUS(GENIO_CPU_A55_2, GENIO_CPU_A55_3),
 	REGIONS(GENIO_AFE_REGIONS),
 	IRQS(),
@@ -113,7 +117,7 @@ GENIO_INMATE_CELL("genio-700-evk-zephyr-afe-smp", "zephyr",
 	RESOURCES(GENIO_UART1_RESOURCES, GENIO_HEADER_PINS,
 		  GENIO_ETDM_PINS));
 
-GENIO_INMATE_CELL("genio-700-evk-zephyr-rpmsg", "zephyr",
+GENIO_INMATE_CELL("genio-700-evk-zephyr-rpmsg", "zephyr-rpmsg",
 	CPUS(GENIO_CPU_A55_3),
 	REGIONS(GENIO_RPMSG_REGIONS),
 	IRQS(),
