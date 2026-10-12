@@ -31,6 +31,8 @@ static void* virt_addr = NULL;
 /* The block's address, as the root cell names it. */
 static unsigned long block_phys = 0;
 
+static bool subword_reported = false;
+
 static const clk_config_descr_t*  config_descr = NULL;
 
 
@@ -132,7 +134,9 @@ static enum mmio_result clk_handle_access (void*                arg,
     access_descr_t access_descr;
 
 
-	/* Registers with entries take 32-bit accesses only. */
+	/* Registers with entries take 32-bit accesses only. Another access */
+	/* to them is an error for a cell; the root cell's is ignored and   */
+	/* reported once, so that it cannot stop a Linux CPU.               */
 	if ((mmio->size != 4) || ((mmio->address & 0x3) != 0))
 	{
 		struct mmio_access word = *mmio;
@@ -141,7 +145,21 @@ static enum mmio_result clk_handle_access (void*                arg,
 		word.address &= ~0x3UL;
 		if (get_access_type (get_access_descr (&word, config_descr->access_descr_map, config_descr->access_descr_map_size)) != ACCESS_ROOT)
 		{
-			return (MMIO_ERROR);
+			if (this_cell () != &root_cell)
+			{
+				return (MMIO_ERROR);
+			}
+			if (! subword_reported)
+			{
+				printk ("CLK: root cell's %u-byte access to 0x%lx ignored\n",
+				        mmio->size, block_phys + mmio->address);
+				subword_reported = true;
+			}
+			if (! (mmio->is_write))
+			{
+				mmio->value = 0;
+			}
+			return (MMIO_HANDLED);
 		}
 	}
 
