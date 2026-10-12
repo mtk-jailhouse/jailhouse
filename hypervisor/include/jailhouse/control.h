@@ -155,6 +155,27 @@ void cell_fail(struct cell *cell, const char *reason);
  */
 int tick_register_handler(void (*handler)(unsigned int period_ms));
 
+/**
+ * Register the function that takes a non-root cell's request to reset the
+ * system, for example to restart the cell instead.
+ * @param handler	Function to call on a CPU of the requesting cell. It
+ *			returns true if it takes the request.
+ *
+ * @return 0 on success, negative error code otherwise.
+ *
+ * @note The handler is registered during hypervisor initialization.
+ */
+int system_reset_register_handler(bool (*handler)(struct cell *cell));
+
+/**
+ * Offer a cell's request to reset the system to the registered handler.
+ * @param cell		Requesting cell.
+ *
+ * @return True if the handler took the request, false otherwise and always
+ * for the root cell.
+ */
+bool cell_request_system_reset(struct cell *cell);
+
 void config_commit(struct cell *cell_added_removed);
 
 long hypercall(unsigned long code, unsigned long arg1, unsigned long arg2);

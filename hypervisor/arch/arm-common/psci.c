@@ -131,6 +131,16 @@ long psci_dispatch(struct trap_context *ctx)
 	case PSCI_1_0_FN_FEATURES:
 		return psci_emulate_features_info(ctx);
 
+	case PSCI_0_2_FN_SYSTEM_RESET:
+		/*
+		 * A cell may not reset the system, but a unit may restart a
+		 * non-root cell instead. Its CPU stops meanwhile.
+		 */
+		if (!cell_request_system_reset(this_cell()))
+			return PSCI_NOT_SUPPORTED;
+		arm_cpu_park();
+		return 0; /* never returned to the PSCI caller */
+
 	default:
 		return PSCI_NOT_SUPPORTED;
 	}

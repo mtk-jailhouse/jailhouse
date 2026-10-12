@@ -40,6 +40,9 @@ static unsigned int num_tick_handlers;
 static unsigned int cell_failures;
 static spinlock_t tick_lock;
 
+/* function that takes a non-root cell's request to reset the system */
+static bool (*system_reset_handler)(struct cell *cell);
+
 volatile unsigned long panic_in_progress;
 unsigned long panic_cpu = -1;
 
@@ -183,6 +186,21 @@ int tick_register_handler(void (*handler)(unsigned int period_ms))
 
 	tick_handlers[num_tick_handlers++] = handler;
 	return 0;
+}
+
+int system_reset_register_handler(bool (*handler)(struct cell *cell))
+{
+	if (system_reset_handler)
+		return trace_error(-EBUSY);
+
+	system_reset_handler = handler;
+	return 0;
+}
+
+bool cell_request_system_reset(struct cell *cell)
+{
+	return cell != &root_cell && system_reset_handler &&
+		system_reset_handler(cell);
 }
 
 /**
