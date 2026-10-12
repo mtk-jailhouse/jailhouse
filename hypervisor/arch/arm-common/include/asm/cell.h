@@ -27,6 +27,18 @@ struct arch_cell {
 	u32 gpio_bitmap [256 / 32];
 	u32 clk_bitmap  [256 / 32];
 
+	/* the MediaTek watchdog (TOPRGU): the cell's own, emulated */
+	struct {
+		bool present;		/* the cell has a watchdog entry */
+		u32 swsysrst_bits;	/* subsystem resets the cell owns */
+		u32 mode;
+		u32 length;
+		u64 deadline;		/* counter value, while MODE.EN is set */
+		bool restart;		/* the cell wrote SWRST */
+		bool swsysrst_reported;
+		u32 last_expiry;	/* why the cell's predecessor failed */
+	} wdt;
+
 	struct {
 		u8 ent_count;
 		struct pvu_tlb_entry *entries;

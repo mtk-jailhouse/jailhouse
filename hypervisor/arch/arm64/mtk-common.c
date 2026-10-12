@@ -90,7 +90,8 @@ int mtk_check_vendor_types (const struct jailhouse_cell_desc*  config)
     {
         if ((vendor->type != JAILHOUSE_VENDOR_MTK_EINT) &&
             (vendor->type != JAILHOUSE_VENDOR_MTK_GPIO) &&
-            (vendor->type != JAILHOUSE_VENDOR_MTK_CLK))
+            (vendor->type != JAILHOUSE_VENDOR_MTK_CLK)  &&
+            (vendor->type != JAILHOUSE_VENDOR_MTK_WDT))
         {
             return (-EINVAL);
         }

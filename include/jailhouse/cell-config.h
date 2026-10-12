@@ -59,7 +59,7 @@
  * Incremented on any layout or semantic change of system or cell config.
  * Also update formats and HEADER_REVISION in pyjailhouse/config_parser.py.
  */
-#define JAILHOUSE_CONFIG_REVISION	15
+#define JAILHOUSE_CONFIG_REVISION	16
 
 #define JAILHOUSE_CELL_NAME_MAXLEN	31
 
@@ -322,10 +322,16 @@ struct jailhouse_pio {
  * bitmap, counted from base, of the register block at address. The type
  * names the vendor's kind of block; the SoC is the one that the hypervisor
  * is built for (CONFIG_SOC).
+ *
+ * A watchdog entry (JAILHOUSE_VENDOR_MTK_WDT) gives the cell a watchdog of its
+ * own at address, with the hardware's register interface. bitmap[0] holds the
+ * subsystem resets the cell may pulse; base is reserved and must be 0. The
+ * root cell's entry names the hardware block, which it keeps.
  */
 #define JAILHOUSE_VENDOR_MTK_EINT	1
 #define JAILHOUSE_VENDOR_MTK_GPIO	2
 #define JAILHOUSE_VENDOR_MTK_CLK	3
+#define JAILHOUSE_VENDOR_MTK_WDT	4
 
 struct jailhouse_vendor_resource {
 	__u32 type;

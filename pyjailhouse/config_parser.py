@@ -19,7 +19,7 @@ import struct
 from .extendedenum import ExtendedEnum
 
 # Keep the whole file in sync with include/jailhouse/cell-config.h.
-_CONFIG_REVISION = 15
+_CONFIG_REVISION = 16
 JAILHOUSE_X86 = 0
 JAILHOUSE_ARM = 1
 JAILHOUSE_ARM64 = 2
