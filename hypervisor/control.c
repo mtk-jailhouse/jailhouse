@@ -666,6 +666,15 @@ static int cell_management_prologue(enum management_task task,
 	return 0;
 }
 
+static void cell_reset_units(struct cell *cell)
+{
+	const struct unit *unit;
+
+	for_each_unit(unit)
+		if (unit->cell_reset)
+			unit->cell_reset(cell);
+}
+
 static int cell_start(struct per_cpu *cpu_data, unsigned long id)
 {
 	struct jailhouse_comm_region *comm_region;
@@ -714,6 +723,7 @@ static int cell_start(struct per_cpu *cpu_data, unsigned long id)
 		system_config->platform_info.pci_mmconfig_base;
 
 	pci_cell_reset(cell);
+	cell_reset_units(cell);
 	arch_cell_reset(cell);
 
 	for_each_cpu(cpu, cell->cpu_set) {
@@ -756,6 +766,7 @@ static int cell_set_loadable(struct per_cpu *cpu_data, unsigned long id)
 	cell->loadable = true;
 
 	pci_cell_reset(cell);
+	cell_reset_units(cell);
 
 	/* map all loadable memory regions into the root cell */
 	for_each_mem_region(mem, cell->config, n)

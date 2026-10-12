@@ -21,9 +21,11 @@ struct unit {
 	unsigned int (*mmio_count_regions)(struct cell *);
 	int (*cell_init)(struct cell *);
 	void (*cell_exit)(struct cell *);
+	/* optional: the cell is about to be loaded or (re)started */
+	void (*cell_reset)(struct cell *);
 };
 
-#define DEFINE_UNIT(__name, __description)				\
+#define __DEFINE_UNIT(__name, __description, ...)			\
 	static const struct unit unit_##__name				\
 	__attribute__((section(".units"), aligned(8), used)) = {	\
 		.name			= __description,		\
@@ -32,7 +34,15 @@ struct unit {
 		.mmio_count_regions	= __name##_mmio_count_regions,	\
 		.cell_init		= __name##_cell_init,		\
 		.cell_exit		= __name##_cell_exit,		\
+		__VA_ARGS__						\
 	}
+
+#define DEFINE_UNIT(__name, __description)				\
+	__DEFINE_UNIT(__name, __description)
+
+#define DEFINE_UNIT_WITH_CELL_RESET(__name, __description)		\
+	__DEFINE_UNIT(__name, __description,				\
+		      .cell_reset = __name##_cell_reset,)
 
 #define DEFINE_UNIT_SHUTDOWN_STUB(__name)				\
 	static void __name##_shutdown(void) { }
