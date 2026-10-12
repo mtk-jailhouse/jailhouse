@@ -1096,8 +1096,13 @@ void panic_park(void)
 			cell_failed = false;
 			break;
 		}
-	if (cell_failed)
+	if (cell_failed) {
 		cell->comm_page.comm_region.cell_state = JAILHOUSE_CELL_FAILED;
+
+		spin_lock(&tick_lock);
+		cell_failures++;
+		spin_unlock(&tick_lock);
+	}
 
 	arch_panic_park();
 
