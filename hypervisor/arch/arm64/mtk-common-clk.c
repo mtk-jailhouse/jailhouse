@@ -78,9 +78,10 @@ static void handle_wo_access (struct mmio_access*  mmio,
         u32 bitmap = config_descr->addr_to_bitmap (mmio, access_descr);
 
 
-		/* Only allow the bits for which access is allowed. */
-        if ((bitmap != 0)                            &&
-            ((mmio->value & bitmap) == mmio->value))
+		/* Only the bits for which access is allowed reach the register; */
+		/* writing 0 to the others leaves them unchanged.                */
+        mmio->value &= bitmap;
+        if (mmio->value != 0)
         {
             mmio_perform_access (virt_addr, mmio);
         }
@@ -99,8 +100,10 @@ static void handle_rw_access (struct mmio_access*  mmio,
     	u32 bitmap = config_descr->addr_to_bitmap (mmio, access_descr);
 
 
-        if ((bitmap != 0)                            &&
-            ((mmio->value & bitmap) == mmio->value))
+        /* Only the bits for which access is allowed are written; */
+        /* the others keep their current value.                   */
+        mmio->value &= bitmap;
+        if (bitmap != 0)
         {
             struct mmio_access curr_mmio;
 
