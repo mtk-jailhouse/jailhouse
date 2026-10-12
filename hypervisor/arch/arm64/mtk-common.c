@@ -16,6 +16,7 @@
 #include <asm/mtk-common.h>
 #include <jailhouse/cell.h>
 #include <jailhouse/control.h>
+#include <jailhouse/printk.h>
 
 
 access_descr_t get_access_descr (struct mmio_access*        mmio,
@@ -98,5 +99,29 @@ int mtk_check_vendor_types (const struct jailhouse_cell_desc*  config)
     }
 
     return (0);
+}
+
+/*
+ * Checks where a pin or clock gate entry starts: the 128 entries of its bitmap
+ * begin at a multiple of 32 and end within the bitmap_bits that the unit
+ * tracks.
+ */
+int mtk_check_vendor_base (const struct jailhouse_cell_desc*       config,
+                           const struct jailhouse_vendor_resource* vendor,
+                           size_t                                  bitmap_bits)
+{
+    const size_t entry_bits = sizeof (vendor->bitmap) * 8;
+
+
+    if (((vendor->base % (sizeof (vendor->bitmap [0]) * 8)) == 0) &&
+        ((vendor->base + entry_bits) <= bitmap_bits))
+    {
+        return (0);
+    }
+
+    printk ("ERROR: Cell \"%s\": vendor entry of type %u starts at %u, "
+            "which is not a multiple of 32 up to %u\n", config->name,
+            vendor->type, vendor->base, (unsigned int) (bitmap_bits - entry_bits));
+    return (-EINVAL);
 }
 

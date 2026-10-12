@@ -342,8 +342,7 @@ int mtk_eint_cell_init (struct cell*  cell)
 		}
 
 		/* Verify that the EINT entries in the cell description are valid. */
-		if (((vendor->base % sizeof (vendor->bitmap [0])) != 0)                                       ||
-		    ((vendor->base + (sizeof (vendor->bitmap) * 8)) > (sizeof (cell->arch.eint_bitmap) * 8)))
+		if (mtk_check_vendor_base (cell->config, vendor, sizeof (cell->arch.eint_bitmap) * 8) != 0)
 		{
 			return (-EINVAL);
 		}

@@ -117,3 +117,9 @@ int mtk_check_cell (struct cell*     cell,
 struct jailhouse_cell_desc;
 
 int mtk_check_vendor_types (const struct jailhouse_cell_desc*  config);
+
+struct jailhouse_vendor_resource;
+
+int mtk_check_vendor_base (const struct jailhouse_cell_desc*       config,
+                           const struct jailhouse_vendor_resource* vendor,
+                           size_t                                  bitmap_bits);
