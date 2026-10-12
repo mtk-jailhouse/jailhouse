@@ -1,0 +1,14 @@
+# Restarts the Jailhouse cells that fail (Documentation/cell-restart.md).
+# Not installed by "make install": a distribution installs it, adjusting the
+# path to its libexecdir.
+
+[Unit]
+Description=Restart failed Jailhouse cells
+ConditionPathExists=/etc/jailhouse/cell-restart.conf
+
+[Service]
+ExecStart=/usr/libexec/jailhouse/jailhouse-cell-restartd /etc/jailhouse/cell-restart.conf
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

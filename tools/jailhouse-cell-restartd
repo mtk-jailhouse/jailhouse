@@ -1,0 +1,252 @@
+#!/usr/bin/env python3
+
+# Jailhouse, a Linux-based partitioning hypervisor
+#
+# Copyright (c) MediaTek Inc., 2026
+#
+# Authors:
+#  Aary Patil <aary.patil@mediatek.com>
+#
+# This work is licensed under the terms of the GNU GPL, version 2.  See
+# the COPYING file in the top-level directory.
+
+"""Restart the Jailhouse cells that fail.
+
+The daemon waits until a cell's state becomes "failed", which the driver
+signals on the cell's state attribute; every 5 s it checks the cells anyway.
+It restarts each failed cell that its configuration names: destroy, create,
+load, start. See Documentation/cell-restart.md for the configuration.
+"""
+
+# Only modules of a minimal python3 (Yocto: python3-core).
+import argparse
+import configparser
+import os
+import select
+import subprocess
+import sys
+import time
+
+SYSFS = '/sys/devices/jailhouse'
+REMOTEPROC = '/sys/class/remoteproc'
+POLL_PERIOD = 5
+MAX_BACKOFF = 30
+
+
+def log(message):
+    print(message, flush=True)
+
+
+def read(path):
+    try:
+        with open(path) as f:
+            return f.read().strip()
+    except OSError:
+        return None
+
+
+def subdirs(path, prefix=''):
+    try:
+        return [os.path.join(path, d) for d in sorted(os.listdir(path))
+                if d.startswith(prefix)]
+    except OSError:
+        return []
+
+
+def detach_remoteproc(name):
+    """Detaches the remoteproc of that name: once for each 'start' on it."""
+    for d in subdirs(REMOTEPROC, 'remoteproc'):
+        if read(os.path.join(d, 'name')) != name:
+            continue
+        state = os.path.join(d, 'state')
+        for _ in range(16):
+            if read(state) != 'attached':
+                break
+            try:
+                with open(state, 'w') as f:
+                    f.write('detach')
+            except OSError as e:
+                log('remoteproc %s: detach failed: %s' % (name, e))
+                return
+        log('remoteproc %s: %s' % (name, read(state)))
+        return
+    log('remoteproc %s: not found' % name)
+
+
+class Cell:
+    def __init__(self, name, section):
+        self.name = name
+        self.config = section['config']
+        self.images = []
+        for line in section['image'].splitlines():
+            words = line.split()
+            if not words:
+                continue
+            if len(words) > 2:
+                raise ValueError('[%s] image: "%s"' % (name, line))
+            self.images.append((words[0],
+                                words[1] if len(words) > 1 else '0'))
+        if not self.images:
+            raise ValueError('[%s] image: none' % name)
+        self.remoteproc = section.get('remoteproc')
+        self.before = section.get('before')
+        self.after = section.get('after')
+        self.limit = section.getint('restart_limit', 5)
+        self.window = section.getint('restart_window', 300)
+
+        self.restarts = []      # times of the restarts within the window
+        self.due_at = None      # time of the next restart, once failed
+        self.given_up = False
+        self.incomplete = False # a restart stopped after destroying it
+
+    def failed(self, now):
+        """Returns True if the cell is to be restarted now."""
+        self.restarts = [t for t in self.restarts if now - t < self.window]
+        if len(self.restarts) >= self.limit:
+            if not self.given_up:
+                log('%s: failed %d times within %d s, not restarted until '
+                    'it runs again' % (self.name, len(self.restarts),
+                                       self.window))
+                self.given_up = True
+            return False
+        if self.due_at is None:
+            # 0, 1, 3, 7, 15, 30 s after the cell failed
+            self.due_at = now + min(2 ** len(self.restarts) - 1,
+                                    MAX_BACKOFF)
+        return now >= self.due_at
+
+    def not_failed(self, state):
+        """The cell is in another state, or does not exist."""
+        self.due_at = None
+        if state == 'running' and self.given_up:
+            self.restarts = []
+            self.given_up = False
+
+    def restart(self, exists):
+        self.restarts.append(time.monotonic())
+        self.due_at = None
+        log('%s: restarting' % self.name)
+
+        if self.before and not self.run(['sh', '-c', self.before]):
+            return
+        if self.remoteproc:
+            detach_remoteproc(self.remoteproc)
+        if exists and not self.run(['jailhouse', 'cell', 'destroy',
+                                    self.name]):
+            return
+
+        self.incomplete = True
+        load = ['jailhouse', 'cell', 'load', self.name]
+        for image, address in self.images:
+            load += [image, '-a', address]
+        for step in [['jailhouse', 'cell', 'create', self.config], load,
+                     ['jailhouse', 'cell', 'start', self.name]]:
+            if not self.run(step):
+                return
+        self.incomplete = False
+
+        if self.after:
+            self.run(['sh', '-c', self.after])
+        log('%s: restarted' % self.name)
+
+    def run(self, command):
+        try:
+            result = subprocess.run(command, stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT,
+                                    universal_newlines=True)
+        except OSError as e:
+            log('%s: %s: %s' % (self.name, command[0], e))
+            return False
+        if result.returncode != 0:
+            log('%s: %s: exit code %d: %s' %
+                (self.name, ' '.join(command), result.returncode,
+                 result.stdout.strip()))
+        return result.returncode == 0
+
+
+def open_states():
+    """The cells' state attributes, opened and read: {name: (file, state)}"""
+    states = {}
+    for d in subdirs(os.path.join(SYSFS, 'cells')):
+        name = read(os.path.join(d, 'name'))
+        try:
+            f = open(os.path.join(d, 'state'))
+            state = f.read().strip()
+        except OSError:
+            continue    # the cell has just been destroyed
+        if name is None:
+            f.close()
+            continue
+        states[name] = (f, state)
+    return states
+
+
+def watch(cells):
+    while True:
+        if read(os.path.join(SYSFS, 'enabled')) != '1':
+            time.sleep(POLL_PERIOD)
+            continue
+
+        states = open_states()
+        try:
+            now = time.monotonic()
+            restarted = False
+            for cell in cells.values():
+                exists = cell.name in states
+                state = states[cell.name][1] if exists else None
+                if state == 'failed' or cell.incomplete:
+                    if cell.failed(now):
+                        cell.restart(exists)
+                        restarted = True
+                else:
+                    cell.not_failed(state)
+            if restarted:
+                continue
+
+            # Wait for a failure, or until the next restart is due.
+            timeout = POLL_PERIOD
+            for cell in cells.values():
+                if cell.due_at is not None and not cell.given_up:
+                    timeout = min(timeout, max(cell.due_at - now, 0))
+            poller = select.poll()
+            for name in cells:
+                if name in states:
+                    poller.register(states[name][0],
+                                    select.POLLPRI | select.POLLERR)
+            poller.poll(int(timeout * 1000))
+        finally:
+            for f, _ in states.values():
+                f.close()
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Restart the Jailhouse cells that fail.')
+    parser.add_argument('config', nargs='?',
+                        default='/etc/jailhouse/cell-restart.conf',
+                        help='configuration file (default: %(default)s)')
+    args = parser.parse_args()
+
+    conf = configparser.ConfigParser(interpolation=None)
+    try:
+        if not conf.read(args.config):
+            raise OSError('cannot read it')
+        cells = {name: Cell(name, conf[name]) for name in conf.sections()}
+    except (OSError, configparser.Error, KeyError, ValueError) as e:
+        log('%s: %s' % (args.config, e))
+        return 1
+
+    if cells:
+        log('restarting %s when they fail' % ', '.join(sorted(cells)))
+    else:
+        log('%s: no cells' % args.config)
+
+    try:
+        watch(cells)
+    except KeyboardInterrupt:
+        pass
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

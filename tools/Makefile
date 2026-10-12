@@ -64,6 +64,7 @@ endif # !HAS_PYTHON_MAKO
 ifeq ($(strip $(PYTHON_PIP_USABLE)), yes)
 HELPERS += \
 	jailhouse-cell-linux \
+	jailhouse-cell-restartd \
 	jailhouse-cell-stats \
 	jailhouse-config-create \
 	jailhouse-config-check \
