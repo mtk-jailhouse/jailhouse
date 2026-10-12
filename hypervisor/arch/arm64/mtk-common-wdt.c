@@ -9,7 +9,11 @@
  * entry gets a watchdog of its own at the same address, with the hardware's
  * register interface. Its deadline is kept as a counter value and checked on
  * each "Tick" hypercall of the root cell; at the deadline, the cell fails. A
- * cell's chip reset (SWRST) fails the cell as well, never the SoC.
+ * cell's chip reset (SWRST) fails the cell as well, never the SoC. After a
+ * restart, the cell's STA tells why its previous run failed.
+ *
+ * The registers are those of the MT8390 datasheet, AP registers, TOPRGU
+ * (pp. 2833-2837).
  *
  * This work is licensed under the terms of the GNU GPL, version 2.  See
  * the COPYING file in the top-level directory.
@@ -34,16 +38,21 @@
 #define  WDT_LENGTH_TIMEOUT	0xffe0	/* in 1/64 s, bits 15:5 */
 #define WDT_RESTART		0x08
 #define  WDT_RESTART_KEY	0x1971
-#define WDT_STA			0x0c
+#define WDT_STA			0x0c	/* read-only */
+#define  WDT_STA_HW_WDT_RST	(1U << 31)	/* reset by a timeout */
+#define  WDT_STA_SW_WDT_RST	(1U << 30)	/* reset by SWRST */
 #define WDT_SWRST		0x14
 #define  WDT_SWRST_KEY		0x1209
 #define WDT_SWSYSRST		0x18
 #define  WDT_SWSYSRST_KEY	0x88000000
 #define WDT_KEY_MASK		0xff000000
 
-/* why a cell failed, for its next instance */
-#define WDT_EXPIRED_TIMEOUT	1
-#define WDT_EXPIRED_SWRST	2
+/*
+ * Only the root cell reaches the other registers, among them the reset pulse
+ * width (WDT_INTERNAL, 0x10) and the lock bits of the subsystem resets
+ * (WDT_SWSYSRST_LOCK, 0x70): another cell reads 0, and its writes are
+ * dropped.
+ */
 
 static const wdt_config_descr_t *config_descr;
 static void *virt_addr;
@@ -59,13 +68,14 @@ static u64 last_tick, tick_period, tick_interval;
 static bool tick_missing_reported;
 
 /*
- * Why a cell of a given name failed. Its next instance finds it in
- * arch.wdt.last_expiry, for WDT_STA once the meaning of its bits is known.
+ * Why a destroyed cell had failed, by its name, as WDT_STA bits: the next
+ * cell of that name reads them after it starts. Taken when that cell is
+ * created; a cause that finds no free entry is reported and dropped.
  */
 static struct {
 	char name[JAILHOUSE_CELL_NAME_MAXLEN + 1];
-	u32 reason;
-} expiries[8];
+	u32 cause;
+} causes[8];
 
 static u64 counter_now(void)
 {
@@ -82,37 +92,39 @@ static u64 period_of(struct cell *cell)
 		counter_freq / 64;
 }
 
-static void record_expiry(struct cell *cell, u32 reason)
+static void record_cause(struct cell *cell)
 {
-	unsigned int n, free = ARRAY_SIZE(expiries);
+	unsigned int n, free = ARRAY_SIZE(causes);
 
-	for (n = 0; n < ARRAY_SIZE(expiries); n++) {
-		if (strcmp(expiries[n].name, cell->config->name) == 0)
+	for (n = 0; n < ARRAY_SIZE(causes); n++) {
+		if (strcmp(causes[n].name, cell->config->name) == 0)
 			break;
-		if (expiries[n].name[0] == 0 && free == ARRAY_SIZE(expiries))
+		if (causes[n].name[0] == 0 && free == ARRAY_SIZE(causes))
 			free = n;
 	}
-	if (n == ARRAY_SIZE(expiries))
+	if (n == ARRAY_SIZE(causes))
 		n = free;
-	if (n == ARRAY_SIZE(expiries))
+	if (n == ARRAY_SIZE(causes)) {
+		printk("WDT: no room to keep why cell \"%s\" failed, the next "
+		       "cell of that name reads STA 0\n", cell->config->name);
 		return;
+	}
 
-	memcpy(expiries[n].name, cell->config->name,
-	       sizeof(expiries[n].name) - 1);
-	expiries[n].name[sizeof(expiries[n].name) - 1] = 0;
-	expiries[n].reason = reason;
+	memcpy(causes[n].name, cell->config->name, sizeof(causes[n].name) - 1);
+	causes[n].name[sizeof(causes[n].name) - 1] = 0;
+	causes[n].cause = cell->arch.wdt.cause;
 }
 
-static u32 take_expiry(struct cell *cell)
+static u32 take_cause(struct cell *cell)
 {
 	unsigned int n;
-	u32 reason;
+	u32 cause;
 
-	for (n = 0; n < ARRAY_SIZE(expiries); n++)
-		if (strcmp(expiries[n].name, cell->config->name) == 0) {
-			reason = expiries[n].reason;
-			memset(&expiries[n], 0, sizeof(expiries[n]));
-			return reason;
+	for (n = 0; n < ARRAY_SIZE(causes); n++)
+		if (strcmp(causes[n].name, cell->config->name) == 0) {
+			cause = causes[n].cause;
+			memset(&causes[n], 0, sizeof(causes[n]));
+			return cause;
 		}
 	return 0;
 }
@@ -150,7 +162,7 @@ static void wdt_tick(unsigned int period_ms)
 {
 	u64 now = counter_now();
 	struct cell *cell;
-	u32 reason;
+	u32 cause;
 
 	spin_lock(&lock);
 
@@ -163,21 +175,24 @@ static void wdt_tick(unsigned int period_ms)
 	}
 
 	for_each_non_root_cell(cell) {
-		if (!cell->arch.wdt.present)
+		/* A cell that failed otherwise, e.g. on a fault, stays so. */
+		if (!cell->arch.wdt.present ||
+		    cell->comm_page.comm_region.cell_state ==
+		    JAILHOUSE_CELL_FAILED)
 			continue;
 
 		if (cell->arch.wdt.restart)
-			reason = WDT_EXPIRED_SWRST;
+			cause = WDT_STA_SW_WDT_RST;
 		else if ((cell->arch.wdt.mode & WDT_MODE_EN) &&
 			 (s64)(now - cell->arch.wdt.deadline) >= 0)
-			reason = WDT_EXPIRED_TIMEOUT;
+			cause = WDT_STA_HW_WDT_RST;
 		else
 			continue;
 
 		cell->arch.wdt.mode &= ~WDT_MODE_EN;
 		cell->arch.wdt.restart = false;
-		record_expiry(cell, reason);
-		if (reason == WDT_EXPIRED_TIMEOUT)
+		cell->arch.wdt.cause = cause;
+		if (cause == WDT_STA_HW_WDT_RST)
 			printk("WDT: cell \"%s\" missed its deadline, detected "
 			       "%llu ms late\n", cell->config->name,
 			       (now - cell->arch.wdt.deadline) * 1000 /
@@ -185,7 +200,7 @@ static void wdt_tick(unsigned int period_ms)
 
 		/* The cell's CPUs may be waiting for the lock. */
 		spin_unlock(&lock);
-		cell_fail(cell, reason == WDT_EXPIRED_TIMEOUT ?
+		cell_fail(cell, cause == WDT_STA_HW_WDT_RST ?
 			  "watchdog timeout" : "chip reset requested");
 		spin_lock(&lock);
 	}
@@ -285,7 +300,9 @@ static enum mmio_result cell_access(struct cell *cell,
 			     (bits & cell->arch.wdt.swsysrst_bits));
 		break;
 	case WDT_STA:
-		/* The meaning of its bits is not known yet (last_expiry). */
+		if (!mmio->is_write)
+			mmio->value = cell->arch.wdt.sta;
+		break;
 	default:
 		if (!mmio->is_write)
 			mmio->value = 0;
@@ -324,18 +341,33 @@ static int get_phys_addr(struct cell *cell, unsigned long *phys_addr)
 	return 0;
 }
 
-void mtk_wdt_cell_reset(struct cell *cell)
+/* Disarms the cell's watchdog and releases its subsystem resets. */
+static void reset_watchdog(struct cell *cell)
 {
-	if (!cell->arch.wdt.present)
-		return;
-
-	spin_lock(&lock);
 	release_swsysrst(cell);
 	cell->arch.wdt.mode = 0;
 	cell->arch.wdt.length = WDT_LENGTH_TIMEOUT;
 	cell->arch.wdt.deadline = 0;
 	cell->arch.wdt.restart = false;
 	cell->arch.wdt.swsysrst_reported = false;
+}
+
+void mtk_wdt_cell_reset(struct cell *cell)
+{
+	if (!cell->arch.wdt.present)
+		return;
+
+	spin_lock(&lock);
+	reset_watchdog(cell);
+	/*
+	 * When the cell starts, rather than becomes loadable, STA takes the
+	 * cause of its last failure until the next start: the hardware's bits
+	 * stay until power-on, a cell's run is the closest equivalent.
+	 */
+	if (!cell->loadable) {
+		cell->arch.wdt.sta = cell->arch.wdt.cause;
+		cell->arch.wdt.cause = 0;
+	}
 	spin_unlock(&lock);
 }
 
@@ -382,9 +414,10 @@ int mtk_wdt_cell_init(struct cell *cell)
 		spin_lock(&lock);
 		root_cell.arch.wdt.swsysrst_bits &=
 			~cell->arch.wdt.swsysrst_bits;
-		cell->arch.wdt.last_expiry = take_expiry(cell);
+		cell->arch.wdt.cause = take_cause(cell);
+		cell->arch.wdt.sta = 0;
+		reset_watchdog(cell);
 		spin_unlock(&lock);
-		mtk_wdt_cell_reset(cell);
 	}
 
 	return 0;
@@ -400,6 +433,8 @@ void mtk_wdt_cell_exit(struct cell *cell)
 
 	spin_lock(&lock);
 	release_swsysrst(cell);
+	if (cell->arch.wdt.cause)
+		record_cause(cell);
 
 	/* Return the resets to the root cell, as far as they were its own. */
 	root_cell.arch.wdt.swsysrst_bits |= cell->arch.wdt.swsysrst_bits;

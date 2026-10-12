@@ -36,7 +36,8 @@ struct arch_cell {
 		u64 deadline;		/* counter value, while MODE.EN is set */
 		bool restart;		/* the cell wrote SWRST */
 		bool swsysrst_reported;
-		u32 last_expiry;	/* why the cell's predecessor failed */
+		u32 cause;		/* STA bits of its last failure */
+		u32 sta;		/* STA bits since its last start */
 	} wdt;
 
 	struct {

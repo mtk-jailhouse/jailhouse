@@ -50,7 +50,11 @@
 #define MT8188_INFRACFG_AO		0x10001000
 #define MT8188_INFRACFG_AO_SIZE		0x1000
 #define MT8188_TOPRGU			0x10007000
-/* its subsystem resets, as in Linux's dt-bindings/reset/mt8188-resets.h */
+/*
+ * its subsystem resets (SWSYSRST), as in Linux's
+ * dt-bindings/reset/mt8188-resets.h and the MT8390 datasheet, AP registers,
+ * TOPRGU (pp. 2833-2837): 24 resets, each held while its bit is set
+ */
 #define MT8188_TOPRGU_SW_RST_MASK	0x00ffffff
 #define MT8188_TOPRGU_AUDIO_SW_RST	14
 #define MT8188_TOPRGU_PCIE_SW_RST	19
