@@ -112,7 +112,10 @@ _Static_assert(GENIO_IVSHMEM >= GENIO_WITHHELD_END &&
  *  CLK_GATES(base, gate, ...)	clock gates of infracfg_ao. An entry spans
  *				128 of them from base, a multiple of 32 up to
  *				128.
- * A pin outside its entry fails the build with "negative width in
+ *  WDT(reset, ...)		a watchdog of the cell's own, which may also
+ *				pulse the subsystem resets listed
+ *				(MT8188_TOPRGU_*_SW_RST); WDT() for none
+ * A pin or reset outside its entry fails the build with "negative width in
  * bit-field", CPUs and interrupts with a static assertion.
  */
 #define CPUS(...)							\
@@ -148,6 +151,17 @@ _Static_assert(GENIO_IVSHMEM >= GENIO_WITHHELD_END &&
 	GENIO_PINS(EINT, MT8188_EINT, from, __VA_ARGS__)
 #define CLK_GATES(from, ...)						\
 	GENIO_PINS(CLK, MT8188_INFRA_CG, from, __VA_ARGS__)
+/* -1 starts the list of resets, which may be empty, and sets no bit */
+#define GENIO_WDT_RESETS(...)						\
+	GENIO_FOLD(GENIO_BIT, GENIO_OR, 0, 0, -1 __VA_OPT__(,) __VA_ARGS__)
+#define WDT(...)							\
+	{								\
+		.type = JAILHOUSE_VENDOR_MTK_WDT,			\
+		.address = MT8188_TOPRGU,				\
+		.base = GENIO_CHECK(!GENIO_FOLD(GENIO_OUTSIDE, GENIO_OR, \
+			-1, 25, -1 __VA_OPT__(,) __VA_ARGS__)),		\
+		.bitmap = { GENIO_WDT_RESETS(__VA_ARGS__) },		\
+	}
 
 /* memory region initializers */
 #define GENIO_COMM_REGION						\
@@ -191,8 +205,9 @@ _Static_assert(GENIO_IVSHMEM >= GENIO_WITHHELD_END &&
  *   UART1, which an inmate with the UART1 console needs.
  * GENIO_HEADER_PINS: GPIO 38 and 40 with their EINTs, which both EVKs
  *   route to the 40-pin header, e.g. for the Zephyr samples.
- * GENIO_AFE_REGIONS: the audio front end, the clocks and resets that its
- *   driver programs, and its DMA memory, all shared with the root cell.
+ * GENIO_AFE_REGIONS: the audio front end, the clocks that its driver
+ *   programs, and its DMA memory, all shared with the root cell. Its reset
+ *   goes through the cell's watchdog: WDT(MT8188_TOPRGU_AUDIO_SW_RST).
  * GENIO_ETDM_PINS: the eTDM pins, OUT1 4-6, 11; IN2 107-110; OUT2 114-117;
  *   IN1 125-128.
  * GENIO_RPMSG_REGIONS: the memory of the ivshmem device, for its peer 1.
@@ -215,7 +230,6 @@ _Static_assert(GENIO_IVSHMEM >= GENIO_WITHHELD_END &&
 		      JAILHOUSE_MEM_READ | JAILHOUSE_MEM_WRITE |	\
 		      JAILHOUSE_MEM_IO | JAILHOUSE_MEM_IO_32 |		\
 		      JAILHOUSE_MEM_ROOTSHARED),			\
-	GENIO_SHARED_MMIO(MT8188_TOPRGU, 0x1000),			\
 	GENIO_SHARED_MMIO(MT8188_APMIXEDSYS, 0x1000),			\
 	GENIO_SHARED_MMIO(MT8188_AFE, MT8188_AFE_SIZE),			\
 	GENIO_SHARED_MMIO(MT8188_ADSP_AUDIO26M, 0x1000),		\
@@ -273,7 +287,8 @@ _Static_assert(GENIO_IVSHMEM >= GENIO_WITHHELD_END &&
  * peer 0 of the ivshmem device.
  *
  * Not mapped, but mediated by the hypervisor: the GIC, the clock gates,
- * GPIO and EINT. The pin configuration blocks are mapped.
+ * GPIO, EINT and the watchdog (TOPRGU). The pin configuration blocks are
+ * mapped.
  */
 #define GENIO_ROOT_LOW_REGIONS						\
 	(MT8188_MMIO_REGIONS,						\
@@ -298,7 +313,15 @@ _Static_assert(GENIO_IVSHMEM >= GENIO_WITHHELD_END &&
 	 GENIO_ALL_PINS(GPIO, MT8188_GPIO, 0),				\
 	 GENIO_ALL_PINS(GPIO, MT8188_GPIO, 128),			\
 	 GENIO_ALL_PINS(CLK, MT8188_INFRA_CG, 0),			\
-	 GENIO_ALL_PINS(CLK, MT8188_INFRA_CG, 128))
+	 GENIO_ALL_PINS(CLK, MT8188_INFRA_CG, 128),			\
+	 GENIO_ROOT_WDT)
+/* the hardware watchdog and all subsystem resets */
+#define GENIO_ROOT_WDT							\
+	{								\
+		.type = JAILHOUSE_VENDOR_MTK_WDT,			\
+		.address = MT8188_TOPRGU,				\
+		.bitmap = { MT8188_TOPRGU_SW_RST_MASK },		\
+	}
 
 #define GENIO_ROOT_CELL(file, smc_ids)					\
 	GENIO_ROOT_CELL_(GENIO_ID, file, GENIO_ROOT_MEM_REGIONS,	\

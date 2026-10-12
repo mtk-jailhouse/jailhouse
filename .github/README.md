@@ -25,7 +25,9 @@ it in a cell, step by step.
 Both SoCs use the MT8188 units. Linux and the cells share the GPIO, external
 interrupt (EINT) and clock gate registers; the hypervisor lets each cell read
 and change only the fields of the pins and clock gates it owns. The pin
-configuration registers belong to Linux.
+configuration registers belong to Linux. Linux keeps the SoC's watchdog; each
+Zephyr cell has a watchdog of its own at the same registers, and when it
+expires, only that cell stops.
 
 ## Branches and releases
 
@@ -44,7 +46,7 @@ tested with and its known limitations, for example [`Documentation/mtk-v1.0-rele
 on `mtk-v1.0`.
 
 The hypervisor, driver, tools and cells of a release belong together. The cell
-configuration format is revision 15; cells built from other trees do not load.
+configuration format is revision 16; cells built from other trees do not load.
 
 To build outside IoT Yocto, run `make` against the Genio BSP kernel.
 `CONFIG_SOC=mt8188` selects the hypervisor's MediaTek units for the SoCs of both
@@ -80,10 +82,10 @@ or `700`.
 |---|---|---|---|---|
 | `genio-<board>-evk.cell` | 0-5 | 0-7 | Linux (root cell) | All, except those of the other cells; a virtual PCI host with an ivshmem device |
 | `genio-<board>-evk-uart-demo.cell` | 3 | 3 | Jailhouse's UART demo | UART1 |
-| `genio-<board>-evk-zephyr.cell` | 3 | 3 | Zephyr on a Cortex-A55 | UART1, GPIO 38 and 40 |
+| `genio-<board>-evk-zephyr.cell` | 3 | 3 | Zephyr on a Cortex-A55 | UART1, GPIO 38 and 40, a watchdog of its own |
 | `genio-<board>-evk-zephyr-a78.cell` | 5 | 7 | Zephyr on a Cortex-A78 | As `-zephyr` |
 | `genio-<board>-evk-zephyr-smp.cell` | 2, 3 | 2, 3 | Zephyr on two Cortex-A55 (SMP) | As `-zephyr` |
-| `genio-<board>-evk-zephyr-afe.cell` | 3 | 3 | Zephyr with audio | As `-zephyr`, plus the audio front end, shared with Linux, and the eTDM pins |
+| `genio-<board>-evk-zephyr-afe.cell` | 3 | 3 | Zephyr with audio | As `-zephyr`, plus the audio front end, shared with Linux, the eTDM pins, and the audio reset through its watchdog |
 | `genio-<board>-evk-zephyr-afe-a78.cell` | 5 | 7 | Zephyr with audio on a Cortex-A78 | As `-zephyr-afe` |
 | `genio-<board>-evk-zephyr-afe-smp.cell` | 2, 3 | 2, 3 | Zephyr with audio on two Cortex-A55 | As `-zephyr-afe` |
 | `genio-<board>-evk-zephyr-rpmsg.cell` | 3 | 3 | Zephyr with an ivshmem device shared with Linux, for RPMsg | As `-zephyr`, plus the ivshmem device, shared with the root cell |
