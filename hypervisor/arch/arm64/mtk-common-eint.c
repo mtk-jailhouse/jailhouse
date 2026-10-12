@@ -259,6 +259,16 @@ static struct cell* irq_target (u16  irq_id)
         }
     }
 
+    /* A failed cell no longer handles its EINTs. Mask them, so that they */
+    /* do not keep the EINT IRQ asserted until the cell is destroyed.     */
+    if ((cell != NULL) &&
+        (cell->comm_page.comm_region.cell_state == JAILHOUSE_CELL_FAILED))
+    {
+        mmio_write32 ((void*) (((unsigned long) virt_addr) + config_descr->mask_set_reg + (idx * sizeof (u32))),
+                      cell->arch.eint_bitmap [idx] & eint_sta);
+        return (NULL);
+    }
+
     /* NULL lets the standard IRQ handler do the work. */
     return (cell);
 }
