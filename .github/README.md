@@ -27,7 +27,8 @@ interrupt (EINT) and clock gate registers; the hypervisor lets each cell read
 and change only the fields of the pins and clock gates it owns. The pin
 configuration registers belong to Linux. Linux keeps the SoC's watchdog; each
 Zephyr cell has a watchdog of its own at the same registers, and when it
-expires, only that cell stops.
+expires, only that cell stops. So does a cell that asks for a reset, through
+its watchdog or PSCI `SYSTEM_RESET`.
 
 ## Branches and releases
 

@@ -9,8 +9,9 @@
  * entry gets a watchdog of its own at the same address, with the hardware's
  * register interface. Its deadline is kept as a counter value and checked on
  * each "Tick" hypercall of the root cell; at the deadline, the cell fails. A
- * cell's chip reset (SWRST) fails the cell as well, never the SoC. After a
- * restart, the cell's STA tells why its previous run failed.
+ * cell's chip reset (SWRST) fails the cell as well, never the SoC, and so does
+ * its PSCI SYSTEM_RESET. After a restart, the cell's STA tells why its
+ * previous run failed.
  *
  * The registers are those of the MT8390 datasheet, AP registers, TOPRGU
  * (pp. 2833-2837).
@@ -40,7 +41,7 @@
 #define  WDT_RESTART_KEY	0x1971
 #define WDT_STA			0x0c	/* read-only */
 #define  WDT_STA_HW_WDT_RST	(1U << 31)	/* reset by a timeout */
-#define  WDT_STA_SW_WDT_RST	(1U << 30)	/* reset by SWRST */
+#define  WDT_STA_SW_WDT_RST	(1U << 30)	/* reset by SWRST (or PSCI) */
 #define WDT_SWRST		0x14
 #define  WDT_SWRST_KEY		0x1209
 #define WDT_SWSYSRST		0x18
@@ -161,6 +162,7 @@ static void check_ticks(void)
 static void wdt_tick(unsigned int period_ms)
 {
 	u64 now = counter_now();
+	const char *reason;
 	struct cell *cell;
 	u32 cause;
 
@@ -181,16 +183,19 @@ static void wdt_tick(unsigned int period_ms)
 		    JAILHOUSE_CELL_FAILED)
 			continue;
 
-		if (cell->arch.wdt.restart)
+		if (cell->arch.wdt.restart) {
 			cause = WDT_STA_SW_WDT_RST;
-		else if ((cell->arch.wdt.mode & WDT_MODE_EN) &&
-			 (s64)(now - cell->arch.wdt.deadline) >= 0)
+			reason = cell->arch.wdt.restart;
+		} else if ((cell->arch.wdt.mode & WDT_MODE_EN) &&
+			   (s64)(now - cell->arch.wdt.deadline) >= 0) {
 			cause = WDT_STA_HW_WDT_RST;
-		else
+			reason = "watchdog timeout";
+		} else {
 			continue;
+		}
 
 		cell->arch.wdt.mode &= ~WDT_MODE_EN;
-		cell->arch.wdt.restart = false;
+		cell->arch.wdt.restart = NULL;
 		cell->arch.wdt.cause = cause;
 		if (cause == WDT_STA_HW_WDT_RST)
 			printk("WDT: cell \"%s\" missed its deadline, detected "
@@ -200,8 +205,7 @@ static void wdt_tick(unsigned int period_ms)
 
 		/* The cell's CPUs may be waiting for the lock. */
 		spin_unlock(&lock);
-		cell_fail(cell, cause == WDT_STA_HW_WDT_RST ?
-			  "watchdog timeout" : "chip reset requested");
+		cell_fail(cell, reason);
 		spin_lock(&lock);
 	}
 
@@ -275,7 +279,7 @@ static enum mmio_result cell_access(struct cell *cell,
 		if (!mmio->is_write)
 			mmio->value = 0;
 		else if (value == WDT_SWRST_KEY)
-			cell->arch.wdt.restart = true;
+			cell->arch.wdt.restart = "chip reset requested";
 		break;
 	case WDT_SWSYSRST:
 		if (!mmio->is_write) {
@@ -322,6 +326,18 @@ static enum mmio_result wdt_handle_access(void *arg, struct mmio_access *mmio)
 	return cell_access(cell, mmio);
 }
 
+/* A cell's PSCI SYSTEM_RESET: restarted like its chip reset (SWRST). */
+static bool wdt_system_reset(struct cell *cell)
+{
+	if (!cell->arch.wdt.present)
+		return false;
+
+	spin_lock(&lock);
+	cell->arch.wdt.restart = "system reset requested";
+	spin_unlock(&lock);
+	return true;
+}
+
 /* The block that the root cell's watchdog entry names, or 0. */
 static int get_phys_addr(struct cell *cell, unsigned long *phys_addr)
 {
@@ -348,7 +364,7 @@ static void reset_watchdog(struct cell *cell)
 	cell->arch.wdt.mode = 0;
 	cell->arch.wdt.length = WDT_LENGTH_TIMEOUT;
 	cell->arch.wdt.deadline = 0;
-	cell->arch.wdt.restart = false;
+	cell->arch.wdt.restart = NULL;
 	cell->arch.wdt.swsysrst_reported = false;
 }
 
@@ -478,6 +494,8 @@ int mtk_wdt_init(const wdt_config_descr_t *wdt_config_descr)
 	err = mtk_wdt_cell_init(&root_cell);
 	if (!err)
 		err = tick_register_handler(wdt_tick);
+	if (!err)
+		err = system_reset_register_handler(wdt_system_reset);
 	if (err) {
 		paging_unmap_device(phys_addr, virt_addr,
 				    config_descr->reg_size);

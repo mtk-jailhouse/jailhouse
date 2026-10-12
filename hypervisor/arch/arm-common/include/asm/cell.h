@@ -34,7 +34,7 @@ struct arch_cell {
 		u32 mode;
 		u32 length;
 		u64 deadline;		/* counter value, while MODE.EN is set */
-		bool restart;		/* the cell wrote SWRST */
+		const char *restart;	/* why the cell asked for a reset */
 		bool swsysrst_reported;
 		u32 cause;		/* STA bits of its last failure */
 		u32 sta;		/* STA bits since its last start */
