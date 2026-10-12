@@ -34,6 +34,12 @@ struct cell root_cell;
 static spinlock_t shutdown_lock;
 static unsigned int num_cells = 1;
 
+/* functions called on the root cell's "Tick" hypercall, and failed cells */
+static void (*tick_handlers[4])(unsigned int period_ms);
+static unsigned int num_tick_handlers;
+static unsigned int cell_failures;
+static spinlock_t tick_lock;
+
 volatile unsigned long panic_in_progress;
 unsigned long panic_cpu = -1;
 
@@ -163,7 +169,20 @@ void cell_fail(struct cell *cell, const char *reason)
 	arch_cell_fail(cell);
 	cell->comm_page.comm_region.cell_state = JAILHOUSE_CELL_FAILED;
 
+	spin_lock(&tick_lock);
+	cell_failures++;
+	spin_unlock(&tick_lock);
+
 	printk("Cell \"%s\" failed: %s\n", cell->config->name, reason);
+}
+
+int tick_register_handler(void (*handler)(unsigned int period_ms))
+{
+	if (num_tick_handlers >= ARRAY_SIZE(tick_handlers))
+		return trace_error(-ENOMEM);
+
+	tick_handlers[num_tick_handlers++] = handler;
+	return 0;
 }
 
 /**
@@ -913,6 +932,23 @@ static int hypervisor_disable(struct per_cpu *cpu_data)
 	return 0;
 }
 
+static long hypervisor_tick(struct per_cpu *cpu_data, unsigned long period_ms)
+{
+	unsigned int failures, n;
+
+	if (cpu_data->public.cell != &root_cell)
+		return -EPERM;
+
+	for (n = 0; n < num_tick_handlers; n++)
+		tick_handlers[n](period_ms);
+
+	spin_lock(&tick_lock);
+	failures = cell_failures;
+	spin_unlock(&tick_lock);
+
+	return failures;
+}
+
 static long hypervisor_get_info(struct per_cpu *cpu_data, unsigned long type)
 {
 	switch (type) {
@@ -996,6 +1032,8 @@ long hypercall(unsigned long code, unsigned long arg1, unsigned long arg2)
 			return trace_error(-EPERM);
 		printk("%c", (char)arg1);
 		return 0;
+	case JAILHOUSE_HC_TICK:
+		return hypervisor_tick(cpu_data, arg1);
 	default:
 		return -ENOSYS;
 	}

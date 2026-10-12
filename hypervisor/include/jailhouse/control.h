@@ -143,6 +143,18 @@ int check_vendor_resources(const struct jailhouse_cell_desc *config);
  */
 void cell_fail(struct cell *cell, const char *reason);
 
+/**
+ * Register a function to be called on each "Tick" hypercall of the root cell.
+ * @param handler	Function to call, on a CPU of the root cell, with the
+ *			period of the ticks in ms that the root cell passes (0
+ *			if it does not say).
+ *
+ * @return 0 on success, negative error code otherwise.
+ *
+ * @note Handlers are registered during hypervisor initialization.
+ */
+int tick_register_handler(void (*handler)(unsigned int period_ms));
+
 void config_commit(struct cell *cell_added_removed);
 
 long hypercall(unsigned long code, unsigned long arg1, unsigned long arg2);

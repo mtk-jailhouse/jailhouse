@@ -308,6 +308,25 @@ Return code: 0 on success, negative error code otherwise
                         flag in its configuration
 
 
+Hypercall "Tick" (code 9)
+- - - - - - - - - - - - -
+
+Give the hypervisor a point at which to evaluate time-based conditions of the
+cells, such as the deadlines of a cell's watchdog. The root cell issues it
+periodically while the hypervisor is enabled. A cell found beyond such a
+condition is stopped and its state set to "Failed".
+
+This hypercall can only be issued on CPUs belonging to the root cell.
+
+Arguments: 1. Period of the ticks in ms, 0 if not known
+
+Return code: Number of cell failures since the hypervisor was enabled (>=0) or
+             negative error code
+
+    Possible errors are:
+        -EPERM  (-1)  - hypercall was issued over a non-root cell
+
+
 Communication Region
 --------------------
 
