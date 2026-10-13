@@ -10,7 +10,7 @@ the mediation of a few EINT, GPIO and clock gate registers.
   builds of later commits on the branch report `mtk-v1.1.0 (<n>-g<commit>)`.
 - Tested on the Genio 510 EVK and the Genio 700 EVK at the tag
   `mtk-v1.1.0`.
-- Based on `mtk-v1.0.0`, with 23 commits on top.
+- Based on `mtk-v1.0.0`, with 28 commits on top.
 
 ## What this release adds
 
@@ -30,10 +30,13 @@ bare metal.
   `failed`, and the hypervisor console logs how late the expiry was
   detected.
 - A cell that writes the chip reset (`SWRST`), or that calls PSCI
-  `SYSTEM_RESET`, fails the same way. Neither resets the SoC. A Zephyr
-  `sys_reboot(SYS_REBOOT_COLD)` therefore restarts only its cell.
+  `SYSTEM_RESET` or the warm `SYSTEM_RESET2`, fails the same way. None of
+  them resets the SoC. A Zephyr `sys_reboot()`, cold or warm, therefore
+  restarts only its cell. `PSCI_FEATURES` reports both calls for a cell with
+  a watchdog; for the other cells they remain unsupported.
 - After a restart, `STA` tells the cell why its previous run ended: bit 31
-  after a timeout, bit 30 after a chip reset or `SYSTEM_RESET`, 0 otherwise.
+  after a timeout, bit 30 after a chip reset or a PSCI system reset, 0
+  otherwise.
   The bits hold until the cell starts again, and across the destruction and
   creation of a cell of the same name.
 - The deadlines are checked on a tick that the Jailhouse driver gives the
@@ -156,8 +159,12 @@ describes the whole format.
     - a stage-2 fault fails the cell at once;
     - of two cells with watchdogs, only the one that stops kicking fails;
     - with Linux's feeder stopped, the cells' watchdogs still work.
-  - **Chip reset, `SYSTEM_RESET` and `STA`:** a cell's chip reset and its
-    PSCI `SYSTEM_RESET` fail only the cell; `STA` reads the expected bits
+  - **Chip reset, PSCI system resets and `STA`:** a cell's chip reset, its
+    PSCI `SYSTEM_RESET` and its warm `SYSTEM_RESET2` fail only the cell, and
+    a cell without a watchdog still gets `NOT_SUPPORTED`; `PSCI_FEATURES`
+    reports both calls only for a cell with a watchdog; Zephyr's cold and
+    warm reboots restart the cell, and `hwinfo` then reports a software
+    reset (Genio 510); `STA` reads the expected bits
     after each kind of end, in place and across destroy and create; the
     root cell's `SWSYSRST` keeps the AFE cell's audio reset.
   - **The tick:** stopping it is reported, and the armed cell fails when it
@@ -178,6 +185,11 @@ describes the whole format.
     `reboot` works.
   - **A cell loaded again in place** runs its new image every time (Genio
     700, where it failed before the fix).
+  - **PCIe:** Linux's PCIe controller can be unbound and rebound with cells
+    running (Genio 700). On this BSP it does not use the TOPRGU resets, and
+    its rebind warns with or without Jailhouse. No node of this BSP's
+    device tree uses the TOPRGU resets, so the root cell's `SWSYSRST`
+    mediation is exercised by direct writes only.
 
 ## Known limitations
 
@@ -189,19 +201,25 @@ describes the whole format.
   meant for tests, and the kernel log says so when it is set.
 - **No pre-timeout.** A cell's watchdog resets the cell; it does not raise
   an interrupt before (Zephyr's watchdog callbacks are not supported).
-- **`SYSTEM_RESET2`** is not supported: Zephyr's `sys_reboot(SYS_REBOOT_WARM)`
-  fails in a cell, while a cold reboot restarts the cell.
 - **The daemon and new cells.** The daemon watches a cell from its next
   wakeup on. The first failure of a cell created while the daemon waits can
   therefore take up to 5 s to be restarted; later failures are restarted at
   once.
-- **UART1 on the Genio 700.** On the Genio 700, Linux has a driver for UART1
-  (`ttyS1`), the cells' UART. Do not open `ttyS1` from Linux: doing so leaves
-  UART1 with DMA and the high-speed mode set until the next boot. The
-  Zephyr images of the paired release clear that state; other inmates do
-  not. On a fresh boot, Linux also keeps UART1's clock off, so an inmate
-  without a clock driver of its own, such as `uart-demo`, prints only after
-  a Zephyr cell has run.
+- **UART1 on the Genio EVKs.** On both boards, Linux has a driver for UART1
+  (`ttyS1`), the cells' UART, and keeps UART1's clock off while it does not
+  use it.
+  - Zephyr and `uart-demo` switch the clock on and program the baud rate
+    themselves.
+  - Zephyr also sets UART1's high-speed register, which `uart-demo` does not
+    reset. To run `uart-demo` after a Zephyr cell, first write 0 to
+    `0x11001224` from Linux, with no cell on UART1. The write only takes
+    effect while UART1's clock is on, which it is after a Zephyr cell has
+    run. After a fresh boot the register is 0, and `uart-demo` needs nothing
+    first.
+  - Do not open `ttyS1` from Linux. Doing so leaves UART1 with DMA and the
+    high-speed mode set until the next boot, and its clock off again after
+    Linux closes it. The Zephyr images of the paired release clear that
+    state; other inmates do not.
 - **Kernel messages on the Genio 700.** Each time a cell gives a CPU back to
   Linux, the kernel logs `IRQ309: set affinity failed(-22)` and
   `IRQ321: set affinity failed(-22)`: it cannot move the PCIe MSIs to the
