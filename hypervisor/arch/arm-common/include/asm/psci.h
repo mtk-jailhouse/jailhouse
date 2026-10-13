@@ -28,6 +28,11 @@
 /* PSCI v1.0 interface */
 #define PSCI_1_0_FN_FEATURES		PSCI_0_2_FN(10)
 
+/* PSCI v1.1 interface */
+#define PSCI_1_1_FN_SYSTEM_RESET2	PSCI_0_2_FN(18)
+#define PSCI_1_1_FN64_SYSTEM_RESET2	PSCI_0_2_FN64(18)
+#define PSCI_SYSTEM_RESET2_WARM		0
+
 /* v0.1 function IDs as used by U-Boot */
 #define PSCI_CPU_OFF_V0_1_UBOOT		0x95c1ba5f
 #define PSCI_CPU_ON_V0_1_UBOOT		0x95c1ba60

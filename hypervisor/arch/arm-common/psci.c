@@ -86,6 +86,12 @@ static long psci_emulate_features_info(struct trap_context *ctx)
 	case SMCCC_VERSION:
 		return PSCI_SUCCESS;
 
+	case PSCI_0_2_FN_SYSTEM_RESET:
+	case PSCI_1_1_FN_SYSTEM_RESET2:
+	case PSCI_1_1_FN64_SYSTEM_RESET2:
+		return cell_can_request_system_reset(this_cell()) ?
+			PSCI_SUCCESS : PSCI_NOT_SUPPORTED;
+
 	default:
 		return PSCI_NOT_SUPPORTED;
 	}
@@ -138,6 +144,17 @@ long psci_dispatch(struct trap_context *ctx)
 		 */
 		if (!cell_request_system_reset(this_cell()))
 			return PSCI_NOT_SUPPORTED;
+		arm_cpu_park();
+		return 0; /* never returned to the PSCI caller */
+
+	case PSCI_1_1_FN_SYSTEM_RESET2:
+	case PSCI_1_1_FN64_SYSTEM_RESET2:
+		/* The same, for the warm reset, the only architectural type */
+		if (!cell_can_request_system_reset(this_cell()))
+			return PSCI_NOT_SUPPORTED;
+		if ((u32)ctx->regs[1] != PSCI_SYSTEM_RESET2_WARM)
+			return PSCI_INVALID_PARAMETERS;
+		cell_request_system_reset(this_cell());
 		arm_cpu_park();
 		return 0; /* never returned to the PSCI caller */
 

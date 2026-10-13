@@ -326,15 +326,20 @@ static enum mmio_result wdt_handle_access(void *arg, struct mmio_access *mmio)
 	return cell_access(cell, mmio);
 }
 
-/* A cell's PSCI SYSTEM_RESET: restarted like its chip reset (SWRST). */
-static bool wdt_system_reset(struct cell *cell)
+/*
+ * A cell's PSCI SYSTEM_RESET or SYSTEM_RESET2: restarted like its chip reset
+ * (SWRST).
+ */
+static bool wdt_system_reset(struct cell *cell, bool take)
 {
 	if (!cell->arch.wdt.present)
 		return false;
 
-	spin_lock(&lock);
-	cell->arch.wdt.restart = "system reset requested";
-	spin_unlock(&lock);
+	if (take) {
+		spin_lock(&lock);
+		cell->arch.wdt.restart = "system reset requested";
+		spin_unlock(&lock);
+	}
 	return true;
 }
 
