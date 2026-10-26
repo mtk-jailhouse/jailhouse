@@ -16,14 +16,15 @@ echo ""
 
 cd "$1" > /dev/null
 
-# Releases are tagged mtk-v<version>, upstream's were v<version>. Without
-# such a tag, as in a clone of mtk-jailhouse before its first release, use
-# VERSION and the commit.
+# Releases are tagged v<version>, after the IoT Yocto (RITY) release they
+# ship with: v26.1, v26.1.1. Upstream's v0.x tags and 1.0's mtk-v1.0.0 are
+# not matched. Without such a tag, as on scarthgap before v26.1, use VERSION
+# and the commit.
 if ! git rev-parse 2>/dev/null; then
 	version="`cat VERSION`"
 else
 	describe="`git describe --long --dirty --abbrev=8 \
-		--match "v[0-9]*" --match "mtk-v[0-9]*" 2>/dev/null`"
+		--match "v[0-9]*" --exclude "v0.*" 2>/dev/null`"
 	if [ -n "$describe" ]; then
 		version="`echo $describe | sed -e 's/^\(.*\)-\([0-9]*-g[0-9a-f]*\(-dirty\)\?\)$/\1 (\2)/'`"
 	else

@@ -9,15 +9,17 @@ Changes go here, not to the upstream mailing list.
 
 ## Branches and pull requests
 
-- Base your work on `mtk-genio-dev`, the default branch, and open a pull
-  request against it.
-- A pull request needs one approval. It is merged by rebase or squash, so the
-  history stays linear.
-- A fix for a release lands on `mtk-genio-dev` first; the maintainers then add
-  it to the release branch.
-- `master`, `mtk-genio-dev` and the release branches `mtk-v*` are protected:
-  no force-push and no deletion.
-  A release branch cannot be deleted and takes changes only as new commits.
+- Base your work on `scarthgap`, the default branch, and open a pull request
+  against it. Only `aary-p` pushes to `scarthgap` directly; every other
+  change, including the other maintainers', goes through a pull request.
+- A pull request needs one approval, from Aary Patil, Andrew Perepech or
+  Felix Freimann. It is merged by rebase, so that each commit keeps its
+  sign-off and the history stays linear.
+- A fix for a release lands on `scarthgap` first; the maintainers then tag
+  the fix release (`v26.1.1`).
+- `master`, `scarthgap` and the release branch `mtk-v1.0` are protected: no
+  force-push and no deletion. `mtk-v1.0` takes changes only as new commits.
+  The release tags `v*` and `mtk-v*` cannot be moved or deleted.
 
 ## Commits
 
@@ -51,8 +53,8 @@ Signed-off-by: Your Name <your.name@example.com>
 Each commit must build on its own, without warnings. The hypervisor, cells,
 inmates and tools build with `-Werror`; the driver does not, but it must
 build without warnings against the BSP kernel as well. Build against a
-Genio BSP kernel (IoT Yocto v26.0, Linux 6.6) that has the
-Jailhouse patches of the IoT Yocto layer:
+Genio BSP kernel (IoT Yocto v26.1, Linux 6.6) built with the `jailhouse`
+feature, which adds the Jailhouse support of `meta-mediatek-bsp`:
 
 ```bash
 make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- KDIR=/path/to/kernel/build CONFIG_SOC=mt8188
@@ -64,7 +66,7 @@ upstream's; a change outside the units must build that way too.
 To build every commit of your branch:
 
 ```bash
-git rebase --exec 'make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- KDIR=/path/to/kernel/build CONFIG_SOC=mt8188' mtk-genio-dev
+git rebase --exec 'make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- KDIR=/path/to/kernel/build CONFIG_SOC=mt8188' scarthgap
 ```
 
 ## Cells

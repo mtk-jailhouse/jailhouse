@@ -35,20 +35,21 @@ such cells ([Documentation/cell-restart.md](../Documentation/cell-restart.md)).
 
 | Branch | Role |
 |---|---|
-| `mtk-genio-dev` | Default branch. All development lands here. |
-| `mtk-v1.1` | Release branch of 1.1, cut from `mtk-genio-dev`. It takes fixes as new commits only. |
-| `mtk-v1.0` | Release branch of 1.0. It takes fixes as new commits only. |
+| `scarthgap` | Default branch, for the IoT Yocto (RITY) releases on Yocto scarthgap. Development lands here, and the releases are tagged on it: `v26.1`, then fixes as `v26.1.1`. |
+| `mtk-v1.0` | Release branch of 1.0 (tag `mtk-v1.0.0`). It takes fixes as new commits only. |
 | `master` | Mirror of upstream Jailhouse `master`. |
 
-Build products from a release branch. IoT Yocto builds Jailhouse with the
-`jailhouse` recipe of the `meta-mediatek-experimental` layer, which builds this
-repository from the release branch `mtk-v1.1` with `CONFIG_SOC=mt8188` and
-installs the cells of the machine it builds for; the user guide covers the
-build. The release notes of each release branch list what the release adds,
-what it was tested with and its known limitations:
-[`Documentation/mtk-v1.1-release-notes.md`](https://github.com/mtk-jailhouse/jailhouse/blob/mtk-v1.1/Documentation/mtk-v1.1-release-notes.md)
-on `mtk-v1.1`, and [`Documentation/mtk-v1.0-release-notes.md`](https://github.com/mtk-jailhouse/jailhouse/blob/mtk-v1.0/Documentation/mtk-v1.0-release-notes.md)
-on `mtk-v1.0`.
+A release is named after the IoT Yocto release it ships with. Build products
+from a release tag. IoT Yocto builds Jailhouse with the `jailhouse` recipe of
+`meta-mediatek-bsp` when the distro has the `jailhouse` feature
+(`DISTRO_FEATURES:append = " jailhouse"`); the recipe builds this repository
+at the tag `v26.1` with `CONFIG_SOC=mt8188` and installs the cells of the
+machine it builds for. The user guide covers the build. The release notes of
+each release list what the release adds, what it was tested with and its known
+limitations:
+[`Documentation/v26.1-release-notes.md`](https://github.com/mtk-jailhouse/jailhouse/blob/scarthgap/Documentation/v26.1-release-notes.md)
+on `scarthgap`, and [`Documentation/mtk-v1.0-release-notes.md`](https://github.com/mtk-jailhouse/jailhouse/blob/mtk-v1.0.0/Documentation/mtk-v1.0-release-notes.md)
+at `mtk-v1.0.0`.
 
 The hypervisor, driver, tools and cells of a release belong together. The cell
 configuration format is revision 16; cells built from other trees do not load.
@@ -63,20 +64,25 @@ needed:
 make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- KDIR=/path/to/kernel/build CONFIG_SOC=mt8188
 ```
 
-The kernel needs the Jailhouse patches that the IoT Yocto layer applies, and the
-board needs the BSP's Jailhouse device-tree overlay, which reserves the memory
-of the hypervisor and the cells. The user guide covers both.
+The kernel needs the Jailhouse support that `meta-mediatek-bsp` adds with the
+`jailhouse` feature, and the board needs the BSP's Jailhouse device-tree
+overlay, `jailhouse.dtbo`, which reserves the memory of the hypervisor and the
+cells. The user guide covers both.
 
 ## Compatibility
 
 | Release | IoT Yocto (BSP) | Linux | [mtk-zephyr](https://github.com/mtk-zephyr/mtk-zephyr) | [Genio samples](https://github.com/mtk-zephyr/samples) |
 |---|---|---|---|---|
-| `mtk-v1.1` | v26.0 (`rity-scarthgap-v26.0`) | 6.6.137 | `mtk-genio-v1.1.0` | `mtk-genio-v1.1.0` |
-| `mtk-v1.0` | v26.0 (`rity-scarthgap-v26.0`) | 6.6.137 | `mtk-genio-v1.0.0` | `mtk-genio-v1.0.0` |
+| `v26.1` | v26.1 (`rity-scarthgap-v26.1`) | 6.6.152 | `mtk-genio-dev` at `2e9e70f0a16c` | `main` at `b962ff34104b` |
+| `mtk-v1.0.0` | v26.0 (`rity-scarthgap-v26.0`) | 6.6.137 | `mtk-genio-v1.0.0` | `mtk-genio-v1.0.0` |
 
-The samples tag's `west.yml` pins the mtk-zephyr tag, so
-`west init -m https://github.com/mtk-zephyr/samples --mr mtk-genio-v1.1.0` and
-`west update` reproduce the pairing.
+For `mtk-v1.0.0`, the samples tag's `west.yml` pins the mtk-zephyr tag, so
+`west init -m https://github.com/mtk-zephyr/samples --mr mtk-genio-v1.0.0` and
+`west update` reproduce the pairing. The Zephyr side has no tag for `v26.1`
+yet: after `west init -m https://github.com/mtk-zephyr/samples` and
+`west update`, check out the two commits of the table (in full in the release
+notes) in `samples` and `zephyr`. The row is to be updated when the Zephyr tag
+exists.
 
 ## Cells
 
