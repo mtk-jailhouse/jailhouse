@@ -73,16 +73,12 @@ cells. The user guide covers both.
 
 | Release | IoT Yocto (BSP) | Linux | [mtk-zephyr](https://github.com/mtk-zephyr/mtk-zephyr) | [Genio samples](https://github.com/mtk-zephyr/samples) |
 |---|---|---|---|---|
-| `v26.1` | v26.1 (`rity-scarthgap-v26.1`) | 6.6.152 | `mtk-genio-dev` at `2e9e70f0a16c` | `main` at `b962ff34104b` |
+| `v26.1` | v26.1 (`rity-scarthgap-v26.1`) | 6.6.152 | `v26.1-rc1` | `v26.1-rc1` |
 | `mtk-v1.0.0` | v26.0 (`rity-scarthgap-v26.0`) | 6.6.137 | `mtk-genio-v1.0.0` | `mtk-genio-v1.0.0` |
 
-For `mtk-v1.0.0`, the samples tag's `west.yml` pins the mtk-zephyr tag, so
-`west init -m https://github.com/mtk-zephyr/samples --mr mtk-genio-v1.0.0` and
-`west update` reproduce the pairing. The Zephyr side has no tag for `v26.1`
-yet: after `west init -m https://github.com/mtk-zephyr/samples` and
-`west update`, check out the two commits of the table (in full in the release
-notes) in `samples` and `zephyr`. The row is to be updated when the Zephyr tag
-exists.
+For each release, the samples tag's `west.yml` pins the mtk-zephyr tag, so
+`west init -m https://github.com/mtk-zephyr/samples --mr <samples tag>` and
+`west update` reproduce the pairing, for example `--mr v26.1-rc1`.
 
 ## Cells
 
