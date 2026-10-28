@@ -97,9 +97,11 @@ or `700`.
 | `genio-<board>-evk-zephyr.cell` | 3 | 3 | Zephyr on a Cortex-A55 | UART1, GPIO 38 and 40, a watchdog of its own |
 | `genio-<board>-evk-zephyr-a78.cell` | 5 | 7 | Zephyr on a Cortex-A78 | As `-zephyr` |
 | `genio-<board>-evk-zephyr-smp.cell` | 2, 3 | 2, 3 | Zephyr on two Cortex-A55 (SMP) | As `-zephyr` |
+| `genio-<board>-evk-zephyr-a78-smp.cell` | 4, 5 | 6, 7 | Zephyr on both Cortex-A78 (SMP) | As `-zephyr` |
 | `genio-<board>-evk-zephyr-afe.cell` | 3 | 3 | Zephyr with audio | As `-zephyr`, plus the audio front end, shared with Linux, the eTDM pins, and the audio reset through its watchdog |
 | `genio-<board>-evk-zephyr-afe-a78.cell` | 5 | 7 | Zephyr with audio on a Cortex-A78 | As `-zephyr-afe` |
 | `genio-<board>-evk-zephyr-afe-smp.cell` | 2, 3 | 2, 3 | Zephyr with audio on two Cortex-A55 | As `-zephyr-afe` |
+| `genio-<board>-evk-zephyr-afe-a78-smp.cell` | 4, 5 | 6, 7 | Zephyr with audio on both Cortex-A78 | As `-zephyr-afe` |
 | `genio-<board>-evk-zephyr-rpmsg.cell` | 3 | 3 | Zephyr with an ivshmem device shared with Linux, for RPMsg | As `-zephyr`, plus the ivshmem device, shared with the root cell |
 
 A cell is named after its file without `genio-<board>-evk-`, for example

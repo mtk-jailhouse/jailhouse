@@ -38,7 +38,7 @@
 
 /*
  * The cores, by Linux CPU number: 6 Cortex-A55 and 2 Cortex-A78. The
- * -a78 cells take the second A78.
+ * -a78 cells take the second A78, the -a78-smp cells both.
  */
 #define GENIO_CPU_A55_0		0
 #define GENIO_CPU_A55_1		1
@@ -80,10 +80,21 @@ GENIO_INMATE_CELL("genio-700-evk-zephyr-a78", "zephyr-a78",
  * Zephyr SMP (-smp, -afe-smp): the CPUs must be the cpu nodes of
  * mtk-zephyr's boards/mediatek/common/genio-evk-smp.dtsi. An SMP image on
  * other CPUs either spins before its console exists (no cpu node for its
- * boot CPU) or panics when CPU_ON is denied.
+ * boot CPU) or panics when CPU_ON is denied. The -a78-smp cells take both
+ * A78s, MPIDR 0x600 and 0x700 on both boards; their images are the smp
+ * variant with an overlay that enables cpu6 and cpu7 instead of cpu2 and
+ * cpu3.
  */
 GENIO_INMATE_CELL("genio-700-evk-zephyr-smp", "zephyr-smp",
 	CPUS(GENIO_CPU_A55_2, GENIO_CPU_A55_3),
+	REGIONS(),
+	IRQS(),
+	NO_PCI,
+	SMC_IDS(),
+	RESOURCES(GENIO_UART1_RESOURCES, GENIO_HEADER_PINS, WDT()));
+
+GENIO_INMATE_CELL("genio-700-evk-zephyr-a78-smp", "zephyr-a78-smp",
+	CPUS(GENIO_CPU_A78_0, GENIO_CPU_A78_1),
 	REGIONS(),
 	IRQS(),
 	NO_PCI,
@@ -110,6 +121,15 @@ GENIO_INMATE_CELL("genio-700-evk-zephyr-afe-a78", "zephyr-afe-a78",
 
 GENIO_INMATE_CELL("genio-700-evk-zephyr-afe-smp", "zephyr-afe-smp",
 	CPUS(GENIO_CPU_A55_2, GENIO_CPU_A55_3),
+	REGIONS(GENIO_AFE_REGIONS),
+	IRQS(),
+	NO_PCI,
+	SMC_IDS(MT8188_SIP_AUDIO_CONTROL),
+	RESOURCES(GENIO_UART1_RESOURCES, GENIO_HEADER_PINS,
+		  GENIO_ETDM_PINS, WDT(MT8188_TOPRGU_AUDIO_SW_RST)));
+
+GENIO_INMATE_CELL("genio-700-evk-zephyr-afe-a78-smp", "zephyr-afe-a78-smp",
+	CPUS(GENIO_CPU_A78_0, GENIO_CPU_A78_1),
 	REGIONS(GENIO_AFE_REGIONS),
 	IRQS(),
 	NO_PCI,
